@@ -177,7 +177,7 @@ def match(recs, by_commune, canon):
             best, second = scored[0], (scored[1] if len(scored) > 1 else (-1, None))
             same_type = sum(1 for x in rs if x["type"] == r["type"])
             accept = (best[0] >= 2 and best[0] > second[0]) or \
-                     (best[0] >= 1.5 and best[0] - second[0] >= 1) or \
+                     (best[0] >= 1 and best[0] - second[0] >= 1) or \
                      (len(cands) == 1 and same_type <= 2 and best[0] >= 0.5) or \
                      (len(cands) == 1 and same_type == 1)
             if not accept:
@@ -196,4 +196,123 @@ def match(recs, by_commune, canon):
             if expl:
                 r["expl"], r["expl_src"] = expl, "sirene"
                 n += 1
+    return n
+
+
+# --------------------------------------------------------------------------- base SIRENE en bloc
+SIRENE_DATASET = "https://www.data.gouv.fr/api/1/datasets/5b7ffc618b4c4169d30727e0/"
+
+
+def _resource(meta, prefix):
+    for r in meta.get("resources", []):
+        t = (r.get("title") or "") + " " + (r.get("url") or "")
+        if prefix in t and "parquet" in t.lower() and "Historique" not in t:
+            return r["url"]
+    return None
+
+
+def load_stock(tmp: Path):
+    """Établissements actifs NAF 35.11Z depuis le stock SIRENE (Parquet, data.gouv.fr), regroupés par commune."""
+    import duckdb  # installé par le workflow
+    meta = json.loads(urllib.request.urlopen(urllib.request.Request(SIRENE_DATASET, headers=UA), timeout=60).read())
+    u_et, u_ul = _resource(meta, "StockEtablissement"), _resource(meta, "StockUniteLegale")
+    if not (u_et and u_ul):
+        raise RuntimeError("ressources Parquet SIRENE introuvables")
+    tmp.mkdir(parents=True, exist_ok=True)
+    paths = {}
+    for name, u in (("et", u_et), ("ul", u_ul)):
+        p = tmp / f"{name}.parquet"
+        print(f"  téléchargement {u}", file=sys.stderr)
+        with urllib.request.urlopen(urllib.request.Request(u, headers=UA), timeout=900) as r, p.open("wb") as fh:
+            while True:
+                b = r.read(1 << 22)
+                if not b:
+                    break
+                fh.write(b)
+        paths[name] = str(p)
+    rows = duckdb.sql(f"""
+        SELECT e.siret, e.siren, e.codeCommuneEtablissement AS insee,
+               coalesce(e.enseigne1Etablissement, '') AS ens1,
+               coalesce(e.denominationUsuelleEtablissement, '') AS ens2,
+               coalesce(u.denominationUniteLegale,
+                        trim(coalesce(u.prenom1UniteLegale,'') || ' ' || coalesce(u.nomUniteLegale,''))) AS nom,
+               coalesce(u.sigleUniteLegale, '') AS sigle
+        FROM read_parquet('{paths['et']}') e
+        JOIN read_parquet('{paths['ul']}') u USING (siren)
+        WHERE e.activitePrincipaleEtablissement = '35.11Z'
+          AND e.etatAdministratifEtablissement = 'A'
+          AND e.codeCommuneEtablissement IS NOT NULL
+    """).fetchall()
+    by = defaultdict(dict)
+    for siret, siren, insee, e1, e2, nom, sigle in rows:
+        c = by[insee].get(siren)
+        if c:
+            c["enseignes"] += [x for x in (e1, e2) if x]
+            continue
+        by[insee][siren] = {"siren": siren, "nom": nom or "", "sigle": sigle, "siret": siret,
+                            "enseignes": [x for x in (e1, e2) if x], "dirigeants_pm": [], "siege_cp": None}
+    for p in paths.values():
+        Path(p).unlink(missing_ok=True)
+    print(f"  SIRENE stock : {len(rows)} établissements 35.11Z actifs dans {len(by)} communes", file=sys.stderr)
+    return {k: list(v.values()) for k, v in by.items()}
+
+
+def enrich_holdings(recs, cache: Path, canon, budget_s=900, workers=6):
+    """Pour les sociétés rattachées, récupère le président / gérant personne morale (API, cache incrémental)."""
+    raw = json.loads(cache.read_text(encoding="utf-8")) if cache.exists() else {}
+    cache_d = raw.get("siren", {}) if raw.get("v") == CACHE_V else {}
+    today = time.strftime("%Y-%m-%d")
+    cutoff = time.strftime("%Y-%m-%d", time.gmtime(time.time() - MAX_AGE_DAYS * 86400))
+    sirens = sorted({r["siren"] for r in recs if r.get("siren")})
+    todo = [s for s in sirens if s not in cache_d or cache_d[s]["d"] < cutoff]
+    todo.sort(key=lambda s: cache_d.get(s, {}).get("d", ""))
+    t0, ok, fails = time.time(), 0, 0
+
+    def one(siren):
+        j = _get({"q": siren, "per_page": 1})
+        for e in j.get("results", []):
+            if e.get("siren") == siren:
+                return _holdings(e)
+        return []
+
+    with ThreadPoolExecutor(workers) as ex:
+        futs, it = {}, iter(todo)
+
+        def submit():
+            if time.time() - t0 > budget_s or fails > 50:
+                return
+            s = next(it, None)
+            if s:
+                futs[ex.submit(one, s)] = s
+        for _ in range(workers * 2):
+            submit()
+        while futs:
+            done, _ = wait(futs, return_when=FIRST_COMPLETED)
+            for f in done:
+                s = futs.pop(f)
+                try:
+                    cache_d[s] = {"d": today, "h": f.result()}
+                    ok += 1
+                except Exception as e:
+                    fails += 1
+                    if fails <= 3:
+                        print(f"  dirigeants {s} : {e}", file=sys.stderr)
+                submit()
+    if ok:
+        cache.write_text(json.dumps({"v": CACHE_V, "siren": cache_d}, ensure_ascii=False, separators=(",", ":")),
+                         encoding="utf-8")
+    n = 0
+    for r in recs:
+        h = (cache_d.get(r.get("siren") or "") or {}).get("h") or []
+        if not h or r.get("expl_src") == "fichier":
+            continue
+        group = next((canon(d) for d in h if canon(d)), None)
+        if group:
+            r["expl"], r["expl_src"] = group, "sirene"
+            n += 1
+        elif r.get("expl_src") == "sirene" and r.get("expl") == r.get("societe"):
+            r["expl"] = h[0].strip()  # holding plutôt que la société de projet
+            n += 1
+    print(f"  dirigeants : {ok} SIREN interrogés en {int(time.time() - t0)} s ({fails} échecs), "
+          f"{len(sirens) - sum(1 for s in sirens if s in cache_d)} restants ; {n} exploitants précisés", file=sys.stderr)
     return n

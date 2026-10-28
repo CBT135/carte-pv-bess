@@ -291,6 +291,7 @@ def main():
     ap.add_argument("--communes", help="JSON geo.api.gouv.fr déjà téléchargé")
     ap.add_argument("--seuil-kw", type=float, default=1000.0)
     ap.add_argument("--out", default=str(DATA / "installations.json"))
+    ap.add_argument("--tmp", default="/tmp/sirene", help="dossier temporaire pour le stock SIRENE")
     ap.add_argument("--no-sirene", action="store_true", help="ne pas interroger la base SIRENE")
     ap.add_argument("--no-osm", action="store_true", help="ne pas interroger OpenStreetMap")
     a = ap.parse_args()
@@ -382,11 +383,17 @@ def main():
         print(f"  OSM : {n_loc} installations rapprochées, {n_expl} exploitants récupérés", file=sys.stderr)
     sirene_stats = {}
     if not a.no_sirene:
-        print("Interrogation SIRENE (NAF 35.11Z par commune)…", file=sys.stderr)
-        by_c, n_ok = sirene_match.fetch_all({p["insee"] for p in pts}, DATA / "sirene_cache.json")
-        n_s = sirene_match.match(pts, by_c, canon)
-        sirene_stats = {"communes_interrogees": n_ok, "societes_rattachees": sum(1 for p in pts if p["siren"]),
-                        "exploitants": n_s}
+        print("SIRENE : établissements de production d'électricité (NAF 35.11Z)…", file=sys.stderr)
+        try:
+            by_c, mode = sirene_match.load_stock(Path(a.tmp)), "stock Parquet"
+        except Exception as e:
+            print(f"  stock SIRENE indisponible ({e}) : repli sur l'API par commune", file=sys.stderr)
+            by_c, _ = sirene_match.fetch_all({p["insee"] for p in pts}, DATA / "sirene_cache.json")
+            mode = "API"
+        sirene_match.match(pts, by_c, canon)
+        n_h = sirene_match.enrich_holdings(pts, DATA / "sirene_dirigeants.json", canon)
+        sirene_stats = {"mode": mode, "societes_rattachees": sum(1 for p in pts if p["siren"]),
+                        "exploitants": sum(1 for p in pts if p["expl_src"] == "sirene"), "holdings": n_h}
         print(f"  SIRENE : {sirene_stats}", file=sys.stderr)
     jitter([p for p in pts if p["loc_src"] == "commune"])
     pts.sort(key=lambda p: -p["mw"])

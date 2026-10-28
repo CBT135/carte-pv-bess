@@ -30,7 +30,10 @@ jobs:
       - name: Construire data/installations.json
         env:
           PYTHONUNBUFFERED: "1"
-        run: python scripts/build_data.py
+        run: |
+          pip install --quiet duckdb
+          set -o pipefail
+          python scripts/build_data.py 2>&1 | tee data/build_log.txt
       - name: Publier si changement
         run: |
           git config user.name  "github-actions[bot]"
