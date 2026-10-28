@@ -98,53 +98,74 @@ def _query(bbox, timeout):
     raise RuntimeError(f"Overpass indisponible ({last})")
 
 
-def fetch_osm(cache: Path, timeout=200, budget_s=900):
-    elements, failed, t0 = {}, 0, time.time()
-    for k, bb in enumerate(tiles()):
+def _item(el):
+    t = el.get("tags", {})
+    c = el.get("center") or ({"lat": el["lat"], "lon": el["lon"]} if "lat" in el else None)
+    if not c:
+        return None
+    src = t.get("plant:source") or t.get("generator:source") or ""
+    return {
+        "id": f'{el["type"][0]}{el["id"]}',
+        "lat": round(c["lat"], 5), "lon": round(c["lon"], 5),
+        "type": "BESS" if "battery" in src and "solar" not in src else "PV",
+        "kind": t.get("power"),
+        "name": t.get("name", ""),
+        "operator": t.get("operator", ""),
+        "owner": t.get("owner", ""),
+        "mw": parse_mw(t.get("plant:output:electricity") or t.get("generator:output:electricity")),
+    }
+
+
+def _tile_key(bb):
+    return ",".join(str(x) for x in bb)
+
+
+def fetch_osm(cache: Path, timeout=200, budget_s=900, max_age_days=14):
+    """Extraction OSM par tuiles avec cache par tuile : chaque exécution rafraîchit d'abord les tuiles
+    jamais extraites puis les plus anciennes, dans la limite du budget temps ; les autres viennent du cache."""
+    today = time.strftime("%Y-%m-%d")
+    cutoff = time.strftime("%Y-%m-%d", time.gmtime(time.time() - max_age_days * 86400))
+    raw = json.loads(cache.read_text(encoding="utf-8")) if cache.exists() else {}
+    tl = tiles()
+    if isinstance(raw, list):  # ancien format : on répartit les objets dans leurs tuiles
+        cached = {}
+        for o in raw:
+            for bb in tl:
+                if bb[0] <= o["lat"] < bb[2] and bb[1] <= o["lon"] < bb[3]:
+                    cached.setdefault(_tile_key(bb), {"d": today, "items": []})["items"].append(o)
+                    break
+    else:
+        cached = raw.get("tiles", {})
+    todo = [bb for bb in tl if _tile_key(bb) not in cached] + \
+           sorted([bb for bb in tl if _tile_key(bb) in cached and cached[_tile_key(bb)]["d"] < cutoff],
+                  key=lambda bb: cached[_tile_key(bb)]["d"])
+    print(f"  Overpass : {len(tl)} tuiles, {len(todo)} à rafraîchir", file=sys.stderr)
+    t0, done = time.time(), 0
+    for bb in todo:
         if time.time() - t0 > budget_s:
-            failed += len(tiles()) - k
-            print("  Overpass : budget temps dépassé", file=sys.stderr)
+            print("  Overpass : budget temps atteint, suite à la prochaine exécution", file=sys.stderr)
             break
         try:
             els = _query(bb, timeout)
-            for el in els:
-                elements[(el["type"], el["id"])] = el
-            print(f"  Overpass tuile {k + 1}/{len(tiles())} : {len(els)} objets", file=sys.stderr)
+            items = [x for x in (_item(el) for el in els) if x]
+            cached[_tile_key(bb)] = {"d": today, "items": items}
+            done += 1
+            print(f"  Overpass tuile {_tile_key(bb)} : {len(items)} objets", file=sys.stderr)
         except Exception as e:
-            failed += 1
-            print(f"  Overpass tuile {k + 1} : échec ({e})", file=sys.stderr)
+            print(f"  Overpass tuile {_tile_key(bb)} : échec ({e})", file=sys.stderr)
         time.sleep(2)
-    data = {"elements": list(elements.values())} if elements else None
-    if data and data.get("elements"):
-        items = []
-        for el in data["elements"]:
-            t = el.get("tags", {})
-            c = el.get("center") or ({"lat": el["lat"], "lon": el["lon"]} if "lat" in el else None)
-            if not c:
-                continue
-            src = t.get("plant:source") or t.get("generator:source") or ""
-            items.append({
-                "id": f'{el["type"][0]}{el["id"]}',
-                "lat": round(c["lat"], 5), "lon": round(c["lon"], 5),
-                "type": "BESS" if "battery" in src and "solar" not in src else "PV",
-                "kind": t.get("power"),
-                "name": t.get("name", ""),
-                "operator": t.get("operator", ""),
-                "owner": t.get("owner", ""),
-                "mw": parse_mw(t.get("plant:output:electricity") or t.get("generator:output:electricity")),
-            })
-        if failed and cache.exists():  # tuiles en échec : on complète avec l'extraction précédente
-            ids = {o["id"] for o in items}
-            prev = [o for o in json.loads(cache.read_text(encoding="utf-8")) if o["id"] not in ids]
-            items += prev
-            print(f"  Overpass : {failed} tuile(s) en échec, {len(prev)} objets repris du cache", file=sys.stderr)
-        cache.write_text(json.dumps(items, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-        print(f"  {len(items)} objets OSM (cache mis à jour)", file=sys.stderr)
-        return items, "Overpass"
-    if cache.exists():
-        print("  Overpass indisponible : utilisation du cache", file=sys.stderr)
-        return json.loads(cache.read_text(encoding="utf-8")), "cache"
-    return [], "aucun"
+    if done:
+        cache.write_text(json.dumps({"v": 2, "tiles": cached}, ensure_ascii=False, separators=(",", ":")),
+                         encoding="utf-8")
+    seen, items = set(), []
+    for t in cached.values():
+        for o in t["items"]:
+            if o["id"] not in seen:
+                seen.add(o["id"])
+                items.append(o)
+    missing = sum(1 for bb in tl if _tile_key(bb) not in cached)
+    print(f"  OSM : {len(items)} objets ({done} tuiles rafraîchies, {missing} jamais extraites)", file=sys.stderr)
+    return items, f"Overpass ({len(tl) - missing}/{len(tl)} tuiles)"
 
 
 def match(recs, osm, canon):
