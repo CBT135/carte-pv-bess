@@ -51,6 +51,9 @@ select:focus,input:focus{outline:2px solid #18212b22;border-color:#9aa6b2}
 .foot{padding:8px 18px 12px;font-size:11px;color:var(--muted);line-height:1.45}
 .foot a{color:inherit}
 #map{flex:1;height:100%}
+.leaflet-control-layers{font:13px Inter,system-ui,sans-serif;border-radius:10px!important;box-shadow:0 4px 16px #0f172a26!important;border:0!important}
+.leaflet-control-layers-base label{margin:2px 0}
+@media (max-width:760px){.leaflet-control-layers{font-size:12px}}
 .leaflet-tooltip.inst{border:0;border-radius:10px;box-shadow:0 6px 24px #0f172a2e;padding:10px 12px;font:13px/1.4 Inter,system-ui,sans-serif;color:var(--ink);min-width:220px;max-width:300px;white-space:normal}
 .inst h3{font-size:14px;margin:0 0 6px;line-height:1.25}
 .inst .tag{display:inline-block;font-size:11px;font-weight:600;border-radius:4px;padding:1px 6px;margin-bottom:6px;color:#fff}
@@ -156,10 +159,28 @@ const norm = s => String(s||"").normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerC
 
 // ---------------------------------------------------------------- carte
 const map = L.map("map",{preferCanvas:true, zoomSnap:.5, minZoom:4}).setView([46.6,2.4],6);
-L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",{
-  maxZoom:18, subdomains:"abcd",
-  attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a> · Données <a href="https://odre.opendatasoft.com/">ODRÉ</a>'
-}).addTo(map);
+const ATTR_ODRE = ' · Données <a href="https://odre.opendatasoft.com/">ODRÉ</a>, <a href="https://www.openstreetmap.org/copyright">OSM</a>';
+const ign = layer => `https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=${layer}&STYLE=normal&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&FORMAT=`;
+const FONDS = {
+  ign: L.tileLayer(ign("GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2") + "image/png", {maxZoom:19,
+    attribution:'&copy; <a href="https://geoservices.ign.fr/">IGN</a> – Plan IGN' + ATTR_ODRE}),
+  sat: L.tileLayer(ign("ORTHOIMAGERY.ORTHOPHOTOS") + "image/jpeg", {maxZoom:19,
+    attribution:'&copy; <a href="https://geoservices.ign.fr/">IGN</a> – Orthophotos' + ATTR_ODRE}),
+  osm: L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {maxZoom:19,
+    attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> · Données <a href="https://odre.opendatasoft.com/">ODRÉ</a>'}),
+};
+const FOND_LABELS = {ign:"Plan IGN", sat:"Vue satellite (IGN)", osm:"OpenStreetMap"};
+let fond = new URLSearchParams(location.hash.slice(1)).get("fond");
+if (!FONDS[fond]) { try { fond = localStorage.getItem("fond"); } catch(e) {} }
+if (!FONDS[fond]) fond = "ign";
+FONDS[fond].addTo(map);
+L.control.layers(Object.fromEntries(Object.entries(FONDS).map(([k,v]) => [FOND_LABELS[k], v])), null,
+  {position:"topright", collapsed:false}).addTo(map);
+map.on("baselayerchange", e => {
+  fond = Object.keys(FONDS).find(k => FONDS[k] === e.layer) || "ign";
+  try { localStorage.setItem("fond", fond); } catch(err) {}
+  if (DATA.length) apply(false);
+});
 const renderer = L.canvas({padding:.3, tolerance:3});
 const layer = L.layerGroup().addTo(map);
 
@@ -175,10 +196,11 @@ function drawSizes(){
 
 let DATA = [], markers = [], META = {};
 
+const EXPL_SRC = {nom:"déduit du nom", osm:"OpenStreetMap", sirene:"via SIRENE"};
 function tooltipHtml(p){
   const c = COLORS[p.type];
   const expl = p.expl
-    ? esc(p.expl) + (p.expl_src === "nom" ? ' <span style="color:#8a96a3">(déduit du nom)</span>' : "")
+    ? esc(p.expl) + (EXPL_SRC[p.expl_src] ? ` <span style="color:#8a96a3">(${EXPL_SRC[p.expl_src]})</span>` : "")
     : '<span style="color:#8a96a3">non publié au registre</span>';
   const charge = p.type === "BESS" && p.mw_charge ? ` · charge ${fmt(p.mw_charge,2)} MW` : "";
   return `<span class="tag" style="background:${c.fill}">${c.label}${p.techno && p.type==="BESS" && !/batterie/i.test(p.techno) ? " – "+esc(p.techno):""}</span>
@@ -187,10 +209,11 @@ function tooltipHtml(p){
     <tr><td>Puissance</td><td><b>${fmt(p.mw,2)} MW</b>${charge}</td></tr>
     <tr><td>Mise en service</td><td>${fmtDate(p.mes)}${p.mes_src==="raccordement" ? " (date de raccordement)" : ""}</td></tr>
     <tr><td>Exploitant</td><td>${expl}</td></tr>
+    ${p.societe ? `<tr><td>Société</td><td>${esc(p.societe)}<br><span style="color:#8a96a3">SIREN ${esc(p.siren)}</span></td></tr>` : ""}
     <tr><td>Commune</td><td>${esc(p.commune)}${p.dep ? " ("+esc(p.dep)+")" : ""}</td></tr>
     <tr><td>Réseau</td><td>${esc(p.grd || "–")}${p.tension ? " · "+esc(p.tension) : ""}</td></tr>
   </table>
-  <div class="note">Position : centroïde de la commune</div>`;
+  <div class="note">Position : ${p.loc_src === "osm" ? "emprise OpenStreetMap" : "centroïde de la commune"}</div>`;
 }
 
 function build(){
@@ -235,7 +258,7 @@ function test(p){
   if (F.y1 !== "" && (y == null || y < +F.y1)) return false;
   if (F.y2 !== "" && (y == null || y > +F.y2)) return false;
   if (F.q){ const q = norm(F.q);
-    if (![p.nom,p.commune,p.dep,p.insee,p.expl,p.poste].some(v => norm(v).includes(q))) return false; }
+    if (![p.nom,p.commune,p.dep,p.insee,p.expl,p.poste,p.societe,p.siren].some(v => norm(v).includes(q))) return false; }
   return true;
 }
 let shown = [];
@@ -254,6 +277,7 @@ function apply(fit){
   Object.entries(F).forEach(([k,v]) => { const s = Array.isArray(v) ? v.join(",") : v;
     if (s !== "" && !(k==="t" && s==="PV,BESS")) h.set(k,s); });
   if (F.t.length === 0) h.set("t","-");
+  if (fond !== "ign") h.set("fond", fond);
   history.replaceState(null, "", h.toString() ? "#"+h.toString() : location.pathname + location.search);
   if (fit && shown.length && (F.r || F.e || F.q)){
     map.fitBounds(L.latLngBounds(shown.map(m=>m.getLatLng())).pad(.08), {maxZoom:11});
@@ -279,7 +303,7 @@ function fillLists(){
 }
 
 function exportCsv(){
-  const cols = ["nom","type","techno","mw","mw_charge","mes","mes_src","expl","expl_src","commune","insee","dep","region","grd","tension","poste","eic","lat","lon"];
+  const cols = ["nom","type","techno","mw","mw_charge","mes","mes_src","expl","expl_src","commune","insee","dep","region","grd","tension","poste","eic","siren","societe","loc_src","lat","lon"];
   const q = v => { const s = v == null ? "" : String(v); return /[;"\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s; };
   const lines = [cols.join(";")].concat(shown.map(m => cols.map(c => {
     const v = m._p[c]; return typeof v === "number" ? String(v).replace(".",",") : q(v); }).join(";")));
@@ -310,8 +334,9 @@ fetch("data/installations.json", {cache:"no-cache"})
     const d = new Date(META.genere_le);
     $("sub").textContent = `${fmt(META.n,0)} installations · registre national ODRÉ · mis à jour le ${d.toLocaleDateString("fr-FR")}`;
     $("foot").innerHTML = `Source : ${esc(META.source)}. Seuil : puissance installée &gt; ${fmt(META.seuil_kw/1000,1)} MW, installations en service non déraccordées. `
-      + `Localisation au centroïde de la commune (pas de coordonnées publiées). `
-      + `L'exploitant n'est pas publié au registre : il est renseigné via <code>data/exploitants.csv</code> ou déduit du nom quand c'est possible.`
+
+      + `L'exploitant n'est pas publié au registre : il provient, par ordre de priorité, de <code>data/exploitants.csv</code>, de la base SIRENE (société de production d'électricité de la commune et sa holding), d'OpenStreetMap, ou du nom de l'installation.`
+      + (META.osm && META.osm.localisees ? ` ${fmt(META.osm.localisees,0)} installations positionnées sur leur emprise OpenStreetMap, les autres au centroïde de la commune.` : "")
       + (META.sans_coordonnees ? ` ${META.sans_coordonnees} installation(s) non géolocalisée(s).` : "");
     fillLists(); build(); drawSizes(); readHash(); writeForm(); apply(true);
   })

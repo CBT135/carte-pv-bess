@@ -24,6 +24,10 @@ import urllib.request
 from collections import Counter, defaultdict
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import osm_match  # noqa: E402
+import sirene_match  # noqa: E402
+
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "data"
 
@@ -186,6 +190,19 @@ OPERATEURS = [
     (r"\bGAZEL\b", "GazelEnergie"),
     (r"\bSOLVEO\b", "Solveo"),
     (r"\bIREL\b|\bIRISOLARIS\b", "Irisolaris"),
+    (r"\bVALOREM\b", "Valorem"),
+    (r"\bABO ?(WIND|ENERGY)\b", "ABO Energy"),
+    (r"\bWPD\b", "wpd"),
+    (r"\bVSB\b", "VSB"),
+    (r"\bOSTWIND\b", "Ostwind"),
+    (r"\bSERGIES\b", "Sergies"),
+    (r"\bCOMPAGNIE DU VENT\b", "Engie (Compagnie du Vent)"),
+    (r"\bSUNTI?ENERGIE\b|\bSUNTI\b", "Sunti"),
+    (r"\bRUBIS\b", "Rubis"),
+    (r"\bALBIOMA\b", "Albioma"),
+    (r"\bENERPARC\b", "Enerparc"),
+    (r"\bLIGHTSOURCE\b", "Lightsource bp"),
+    (r"\bENGIE GREEN\b|\bENGIE PV\b", "ENGIE"),
 ]
 OPERATEURS = [(re.compile(p), lab) for p, lab in OPERATEURS]
 
@@ -206,6 +223,15 @@ def load_overrides():
             else:
                 exact[up(k)] = v
     return exact, regex
+
+
+def canon(op):
+    """Ramène un libellé d'opérateur (ex. tag OSM) à un groupe connu, sinon None."""
+    n = up(op)
+    for rx, v in OPERATEURS:
+        if rx.search(n):
+            return v
+    return None
 
 
 def exploitant(eic, nom, overrides):
@@ -264,6 +290,8 @@ def main():
     ap.add_argument("--communes", help="JSON geo.api.gouv.fr déjà téléchargé")
     ap.add_argument("--seuil-kw", type=float, default=1000.0)
     ap.add_argument("--out", default=str(DATA / "installations.json"))
+    ap.add_argument("--no-sirene", action="store_true", help="ne pas interroger la base SIRENE")
+    ap.add_argument("--no-osm", action="store_true", help="ne pas interroger OpenStreetMap")
     a = ap.parse_args()
 
     rows, source = load_registre(a.registre)
@@ -340,12 +368,30 @@ def main():
             sans_coord.append(rec)
             continue
         rec["lat"], rec["lon"] = c
+        rec["loc_src"] = "commune"
+        rec["osm"] = None
+        rec["siren"] = rec["societe"] = None
         pts.append(rec)
-    jitter(pts)
+
+    osm_stats = {}
+    if not a.no_osm:
+        osm, osm_src = osm_match.fetch_osm(DATA / "osm_plants.json")
+        n_loc, n_expl = osm_match.match(pts, osm, canon)
+        osm_stats = {"source": osm_src, "objets": len(osm), "localisees": n_loc, "exploitants": n_expl}
+        print(f"  OSM : {n_loc} installations rapprochées, {n_expl} exploitants récupérés", file=sys.stderr)
+    sirene_stats = {}
+    if not a.no_sirene:
+        print("Interrogation SIRENE (NAF 35.11Z par commune)…", file=sys.stderr)
+        by_c, n_ok = sirene_match.fetch_all({p["insee"] for p in pts}, DATA / "sirene_cache.json")
+        n_s = sirene_match.match(pts, by_c, canon)
+        sirene_stats = {"communes_interrogees": n_ok, "societes_rattachees": sum(1 for p in pts if p["siren"]),
+                        "exploitants": n_s}
+        print(f"  SIRENE : {sirene_stats}", file=sys.stderr)
+    jitter([p for p in pts if p["loc_src"] == "commune"])
     pts.sort(key=lambda p: -p["mw"])
 
     fields = ["nom", "type", "techno", "mw", "mw_charge", "mes", "mes_src", "expl", "expl_src",
-              "commune", "insee", "dep", "region", "grd", "tension", "poste", "eic", "lat", "lon"]
+              "commune", "insee", "dep", "region", "grd", "tension", "poste", "eic", "lat", "lon", "loc_src", "osm", "siren", "societe"]
     out = {
         "meta": {
             "source": source,
@@ -356,6 +402,9 @@ def main():
             "mw_bess": round(sum(p["mw"] for p in pts if p["type"] == "BESS"), 1),
             "exclusions": dict(excl),
             "sans_coordonnees": len(sans_coord),
+            "osm": osm_stats,
+            "sirene": sirene_stats,
+            "exploitant_identifie_mw": round(sum(p["mw"] for p in pts if p["expl"]), 1),
             "localisation": "centroïde de la commune du point de livraison (le registre ne publie pas de coordonnées)",
         },
         "fields": fields,
