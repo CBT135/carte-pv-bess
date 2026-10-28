@@ -1,26 +1,22 @@
 Téléchargement du registre ODRÉ…
   141589 lignes lues (ODRÉ – odre.opendatasoft.com (registre-national-installation-production-stockage-electricite-agrege))
   35014 centroïdes de communes
-  Overpass tuile 1/29 : 550 objets
-  Overpass tuile 2/29 : 382 objets
-  Overpass tuile 3/29 : 193 objets
-  Overpass tuile 4/29 : 40 objets
-  Overpass tuile 5/29 : 28 objets
-  Overpass tuile 6/29 : 273 objets
-  Overpass tuile 7/29 : 267 objets
-  Overpass tuile 8/29 : 409 objets
-  Overpass tuile 9/29 : 0 objets
-  Overpass tuile 10/29 : 195 objets
-  Overpass tuile 11/29 : 137 objets
-  Overpass tuile 12/29 : 632 objets
-  Overpass : budget temps dépassé
-  Overpass : 17 tuile(s) en échec, 0 objets repris du cache
-  3103 objets OSM (cache mis à jour)
-  OSM : 800 installations rapprochées, 189 exploitants récupérés
+  Overpass : 29 tuiles, 18 à rafraîchir
+  Overpass tuile 44.5,-5.3,46.0,-1.5 : 0 objets
+  Overpass tuile 46.0,-5.3,47.5,-1.5 : 58 objets
+  Overpass tuile 46.0,-1.5,47.5,1.5 : 162 objets
+  Overpass tuile 46.0,1.5,47.5,4.5 : 243 objets
+  Overpass tuile 46.0,4.5,47.5,9.7 : 576 objets
+  Overpass tuile 47.5,-5.3,49.0,-1.5 : 67 objets
+  Overpass tuile 47.5,-1.5,49.0,1.5 : échec (Overpass indisponible (HTTP Error 504: Gateway Time-out))
+  Overpass tuile 47.5,1.5,49.0,4.5 : 143 objets
+  Overpass : budget temps atteint, suite à la prochaine exécution
+  OSM : 4351 objets (7 tuiles rafraîchies, 11 jamais extraites)
+  OSM : 1071 installations rapprochées, 265 exploitants récupérés
 SIRENE : établissements de production d'électricité (NAF 35.11Z)…
   téléchargement https://static.data.gouv.fr/resources/base-sirene-des-entreprises-et-de-leurs-etablissements-siren-siret/20261001-073823/stock-stocketablissement-parquet.parquet
   téléchargement https://static.data.gouv.fr/resources/base-sirene-des-entreprises-et-de-leurs-etablissements-siren-siret/20261001-073325/stock-stockunitelegale-parquet.parquet
   SIRENE stock : 242110 établissements 35.11Z actifs dans 30366 communes
-  dirigeants : 398 SIREN interrogés en 983 s (0 échecs), 105 restants ; 475 exploitants précisés
-  SIRENE : {'mode': 'stock Parquet', 'societes_rattachees': 1145, 'exploitants': 1127, 'holdings': 475}
+  dirigeants : 105 SIREN interrogés en 548 s (0 échecs), 0 restants ; 928 exploitants précisés
+  SIRENE : {'mode': 'stock Parquet', 'societes_rattachees': 1145, 'exploitants': 1121, 'holdings': 928}
 OK : 3673 installations (14624.4 MW PV, 2250.6 MW BESS), 0 sans coordonnées, exclusions {'≤ seuil': 96479, 'agrégats < 36 kW': 33611}
