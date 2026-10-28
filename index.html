@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Carte PV & BESS France</title>
+<meta name="description" content="Installations photovoltaïques et de stockage par batteries de plus de 1 MW en service en France (Registre national ODRÉ).">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f6f7f9; --panel:#ffffff; --ink:#18212b; --muted:#5d6b7a; --line:#e2e6eb;
+  --pv:#f2a20c; --pv-stroke:#a8650a; --bess:#4c4fe0; --bess-stroke:#2a2c9c;
+  --accent:#18212b; --chip:#eef1f4;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;font-family:Inter,system-ui,sans-serif;color:var(--ink);background:var(--bg)}
+#app{display:flex;height:100%}
+aside{width:340px;flex:0 0 340px;background:var(--panel);border-right:1px solid var(--line);
+  display:flex;flex-direction:column;overflow:hidden;z-index:1000}
+.head{padding:18px 18px 12px;border-bottom:1px solid var(--line)}
+.head h1{font-size:17px;margin:0 0 4px;letter-spacing:-.01em}
+.head p{margin:0;font-size:12px;color:var(--muted);line-height:1.4}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:12px 18px;border-bottom:1px solid var(--line)}
+.stat{background:var(--chip);border-radius:8px;padding:8px 8px 7px}
+.stat b{display:block;font-size:16px;font-variant-numeric:tabular-nums}
+.stat span{font-size:11px;color:var(--muted)}
+.stat.pv b{color:var(--pv-stroke)} .stat.bess b{color:var(--bess)}
+form{padding:12px 18px 18px;overflow:auto;flex:1}
+fieldset{border:0;margin:0 0 14px;padding:0}
+legend,label.lbl{display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:6px}
+select,input[type=search],input[type=number]{width:100%;font:inherit;font-size:14px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink)}
+select:focus,input:focus{outline:2px solid #18212b22;border-color:#9aa6b2}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.types{display:flex;gap:8px}
+.tbtn{flex:1;display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:8px;padding:8px 10px;cursor:pointer;font-size:14px;user-select:none;background:#fff}
+.tbtn input{display:none}
+.tbtn .dot{width:12px;height:12px;border-radius:50%;flex:0 0 12px}
+.tbtn:has(input:not(:checked)){opacity:.45;background:var(--chip)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.chips button{font:inherit;font-size:12px;border:1px solid var(--line);background:var(--chip);border-radius:999px;padding:4px 10px;cursor:pointer;color:var(--ink)}
+.chips button:hover{background:#e3e7ec}
+.actions{display:flex;gap:8px;margin-top:6px}
+.actions button{flex:1;font:inherit;font-size:13px;font-weight:600;border-radius:8px;padding:9px;cursor:pointer;border:1px solid var(--line);background:#fff;color:var(--ink)}
+.actions button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.legend{padding:12px 18px;border-top:1px solid var(--line);font-size:12px;color:var(--muted)}
+.legend .sizes{display:flex;align-items:flex-end;gap:14px;margin-top:6px}
+.legend .sizes div{display:flex;flex-direction:column;align-items:center;gap:3px}
+.legend .sizes i{display:block;border-radius:50%;background:#9aa6b233;border:1px solid #6b7887}
+.foot{padding:8px 18px 12px;font-size:11px;color:var(--muted);line-height:1.45}
+.foot a{color:inherit}
+#map{flex:1;height:100%}
+.leaflet-tooltip.inst{border:0;border-radius:10px;box-shadow:0 6px 24px #0f172a2e;padding:10px 12px;font:13px/1.4 Inter,system-ui,sans-serif;color:var(--ink);min-width:220px;max-width:300px;white-space:normal}
+.inst h3{font-size:14px;margin:0 0 6px;line-height:1.25}
+.inst .tag{display:inline-block;font-size:11px;font-weight:600;border-radius:4px;padding:1px 6px;margin-bottom:6px;color:#fff}
+.inst table{border-collapse:collapse;width:100%}
+.inst td{padding:2px 0;vertical-align:top;font-size:12.5px}
+.inst td:first-child{color:var(--muted);padding-right:10px;white-space:nowrap}
+.inst .note{font-size:11px;color:var(--muted);margin-top:6px}
+#toggle{display:none}
+#empty{position:absolute;inset:0;display:none;align-items:center;justify-content:center;z-index:2000;background:#f6f7f9ee;padding:24px;text-align:center}
+#empty div{max-width:440px;font-size:14px;line-height:1.5}
+@media (max-width:760px){
+  #app{flex-direction:column}
+  aside{position:fixed;left:0;right:0;bottom:0;width:auto;max-height:78vh;border-right:0;border-top:1px solid var(--line);
+    border-radius:14px 14px 0 0;transform:translateY(calc(100% - 178px));transition:transform .25s;box-shadow:0 -6px 24px #0f172a22}
+  aside.open{transform:none}
+  #toggle{display:block;width:44px;height:5px;border-radius:3px;background:#c6cdd5;margin:8px auto 0;border:0;padding:0;cursor:pointer}
+  .head{padding-top:8px}
+  #map{height:100%}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <aside id="panel">
+    <button id="toggle" aria-label="Afficher les filtres"></button>
+    <div class="head">
+      <h1>Centrales PV & BESS &gt; 1 MW en service</h1>
+      <p id="sub">Chargement des données…</p>
+    </div>
+    <div class="stats">
+      <div class="stat"><b id="sN">–</b><span>projets affichés</span></div>
+      <div class="stat pv"><b id="sPV">–</b><span>MW PV</span></div>
+      <div class="stat bess"><b id="sBESS">–</b><span>MW BESS</span></div>
+    </div>
+    <form id="f" autocomplete="off" onsubmit="return false">
+      <fieldset>
+        <legend>Type</legend>
+        <div class="types">
+          <label class="tbtn"><input type="checkbox" name="t" value="PV" checked><span class="dot" style="background:var(--pv)"></span>Photovoltaïque</label>
+          <label class="tbtn"><input type="checkbox" name="t" value="BESS" checked><span class="dot" style="background:var(--bess)"></span>Batteries</label>
+        </div>
+      </fieldset>
+      <fieldset>
+        <label class="lbl" for="region">Région</label>
+        <select id="region"><option value="">Toutes les régions</option></select>
+      </fieldset>
+      <fieldset>
+        <label class="lbl" for="expl">Exploitant</label>
+        <input type="search" id="expl" list="explList" placeholder="Tous (tapez pour filtrer)">
+        <datalist id="explList"></datalist>
+      </fieldset>
+      <fieldset>
+        <legend>Puissance (MW)</legend>
+        <div class="row2">
+          <input type="number" id="pmin" min="0" step="0.5" placeholder="min (1)">
+          <input type="number" id="pmax" min="0" step="0.5" placeholder="max">
+        </div>
+        <div class="chips" id="pchips">
+          <button type="button" data-r="1,5">1–5</button>
+          <button type="button" data-r="5,12">5–12</button>
+          <button type="button" data-r="12,30">12–30</button>
+          <button type="button" data-r="30,100">30–100</button>
+          <button type="button" data-r="100,">&gt; 100</button>
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend>Mise en service</legend>
+        <div class="row2">
+          <input type="number" id="y1" min="1990" max="2100" placeholder="depuis (année)">
+          <input type="number" id="y2" min="1990" max="2100" placeholder="jusqu'à">
+        </div>
+      </fieldset>
+      <fieldset>
+        <label class="lbl" for="q">Recherche</label>
+        <input type="search" id="q" placeholder="Nom, commune, département…">
+      </fieldset>
+      <div class="actions">
+        <button type="button" id="reset">Réinitialiser</button>
+        <button type="button" id="csv" class="primary">Exporter CSV</button>
+      </div>
+    </form>
+    <div class="legend">
+      Taille du point proportionnelle à √P
+      <div class="sizes" id="sizes"></div>
+    </div>
+    <div class="foot" id="foot"></div>
+  </aside>
+  <div id="map"></div>
+</div>
+<div id="empty"><div id="emptyMsg"></div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+"use strict";
+const COLORS = {PV:{fill:"#f2a20c",stroke:"#a8650a",label:"Photovoltaïque"},
+                BESS:{fill:"#4c4fe0",stroke:"#2a2c9c",label:"Stockage batteries"}};
+const NO_EXPL = "Non identifié";
+const $ = id => document.getElementById(id);
+const fmt = (x, d=1) => x == null ? "–" : x.toLocaleString("fr-FR",{maximumFractionDigits:d});
+const fmtDate = s => s ? s.split("-").reverse().join("/") : "n.c.";
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const norm = s => String(s||"").normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase();
+
+// ---------------------------------------------------------------- carte
+const map = L.map("map",{preferCanvas:true, zoomSnap:.5, minZoom:4}).setView([46.6,2.4],6);
+L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",{
+  maxZoom:18, subdomains:"abcd",
+  attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a> · Données <a href="https://odre.opendatasoft.com/">ODRÉ</a>'
+}).addTo(map);
+const renderer = L.canvas({padding:.3, tolerance:3});
+const layer = L.layerGroup().addTo(map);
+
+// rayon : √P, plafonné, légèrement agrandi avec le zoom
+const baseR = mw => Math.min(2.6 + 1.9*Math.sqrt(mw), 20);
+const zoomK = () => Math.max(.75, Math.min(1.7, 1 + (map.getZoom()-6)*.13));
+function drawSizes(){
+  const k = zoomK();
+  $("sizes").innerHTML = [1,10,50,200].map(mw=>{
+    const d = 2*baseR(mw)*k;
+    return `<div><i style="width:${d}px;height:${d}px"></i>${mw} MW</div>`;}).join("");
+}
+
+let DATA = [], markers = [], META = {};
+
+function tooltipHtml(p){
+  const c = COLORS[p.type];
+  const expl = p.expl
+    ? esc(p.expl) + (p.expl_src === "nom" ? ' <span style="color:#8a96a3">(déduit du nom)</span>' : "")
+    : '<span style="color:#8a96a3">non publié au registre</span>';
+  const charge = p.type === "BESS" && p.mw_charge ? ` · charge ${fmt(p.mw_charge,2)} MW` : "";
+  return `<span class="tag" style="background:${c.fill}">${c.label}${p.techno && p.type==="BESS" && !/batterie/i.test(p.techno) ? " – "+esc(p.techno):""}</span>
+  <h3>${esc(p.nom)}</h3>
+  <table>
+    <tr><td>Puissance</td><td><b>${fmt(p.mw,2)} MW</b>${charge}</td></tr>
+    <tr><td>Mise en service</td><td>${fmtDate(p.mes)}${p.mes_src==="raccordement" ? " (date de raccordement)" : ""}</td></tr>
+    <tr><td>Exploitant</td><td>${expl}</td></tr>
+    <tr><td>Commune</td><td>${esc(p.commune)}${p.dep ? " ("+esc(p.dep)+")" : ""}</td></tr>
+    <tr><td>Réseau</td><td>${esc(p.grd || "–")}${p.tension ? " · "+esc(p.tension) : ""}</td></tr>
+  </table>
+  <div class="note">Position : centroïde de la commune</div>`;
+}
+
+function build(){
+  markers = DATA.map(p => {
+    const c = COLORS[p.type];
+    const m = L.circleMarker([p.lat,p.lon],{renderer, radius:baseR(p.mw)*zoomK(),
+      color:"#ffffff", weight:.8, fillColor:c.fill, fillOpacity:.72, opacity:.9});
+    m.bindTooltip(() => tooltipHtml(p), {className:"inst", direction:"top", offset:[0,-4], sticky:false});
+    m.on("mouseover", () => m.setStyle({color:c.stroke, weight:2}));
+    m.on("mouseout",  () => m.setStyle({color:"#ffffff", weight:.8}));
+    m.on("click", () => m.openTooltip());
+    m._p = p;
+    return m;
+  });
+}
+map.on("zoomend", () => { const k = zoomK(); markers.forEach(m => m.setRadius(baseR(m._p.mw)*k)); drawSizes(); });
+
+// ---------------------------------------------------------------- filtres
+const F = {t:["PV","BESS"], r:"", e:"", pmin:"", pmax:"", y1:"", y2:"", q:""};
+
+function readForm(){
+  F.t = [...document.querySelectorAll('input[name=t]:checked')].map(i=>i.value);
+  F.r = $("region").value; F.e = $("expl").value.trim();
+  F.pmin = $("pmin").value; F.pmax = $("pmax").value;
+  F.y1 = $("y1").value; F.y2 = $("y2").value; F.q = $("q").value.trim();
+}
+function writeForm(){
+  document.querySelectorAll('input[name=t]').forEach(i => i.checked = F.t.includes(i.value));
+  $("region").value = F.r; $("expl").value = F.e; $("pmin").value = F.pmin; $("pmax").value = F.pmax;
+  $("y1").value = F.y1; $("y2").value = F.y2; $("q").value = F.q;
+}
+function test(p){
+  if (!F.t.includes(p.type)) return false;
+  if (F.r && p.region !== F.r) return false;
+  if (F.e){
+    if (F.e === NO_EXPL){ if (p.expl) return false; }
+    else if (!norm(p.expl).includes(norm(F.e))) return false;
+  }
+  if (F.pmin !== "" && p.mw < +F.pmin) return false;
+  if (F.pmax !== "" && p.mw > +F.pmax) return false;
+  const y = p.mes ? +p.mes.slice(0,4) : null;
+  if (F.y1 !== "" && (y == null || y < +F.y1)) return false;
+  if (F.y2 !== "" && (y == null || y > +F.y2)) return false;
+  if (F.q){ const q = norm(F.q);
+    if (![p.nom,p.commune,p.dep,p.insee,p.expl,p.poste].some(v => norm(v).includes(q))) return false; }
+  return true;
+}
+let shown = [];
+function apply(fit){
+  readForm();
+  layer.clearLayers();
+  shown = markers.filter(m => test(m._p));
+  // les plus gros d'abord : les petits restent visibles et survolables par-dessus
+  shown.forEach(m => layer.addLayer(m));
+  const pv = shown.reduce((s,m)=> s + (m._p.type==="PV" ? m._p.mw : 0), 0);
+  const be = shown.reduce((s,m)=> s + (m._p.type==="BESS" ? m._p.mw : 0), 0);
+  $("sN").textContent = fmt(shown.length,0);
+  $("sPV").textContent = fmt(pv,0);
+  $("sBESS").textContent = fmt(be,0);
+  const h = new URLSearchParams();
+  Object.entries(F).forEach(([k,v]) => { const s = Array.isArray(v) ? v.join(",") : v;
+    if (s !== "" && !(k==="t" && s==="PV,BESS")) h.set(k,s); });
+  if (F.t.length === 0) h.set("t","-");
+  history.replaceState(null, "", h.toString() ? "#"+h.toString() : location.pathname + location.search);
+  if (fit && shown.length && (F.r || F.e || F.q)){
+    map.fitBounds(L.latLngBounds(shown.map(m=>m.getLatLng())).pad(.08), {maxZoom:11});
+  }
+}
+function readHash(){
+  const h = new URLSearchParams(location.hash.slice(1));
+  for (const k of Object.keys(F)){
+    if (!h.has(k)) continue;
+    F[k] = k === "t" ? (h.get(k) === "-" ? [] : h.get(k).split(",")) : h.get(k);
+  }
+}
+
+function fillLists(){
+  const regs = {};
+  DATA.forEach(p => regs[p.region] = (regs[p.region]||0) + 1);
+  $("region").insertAdjacentHTML("beforeend", Object.keys(regs).sort((a,b)=>a.localeCompare(b,"fr"))
+    .map(r => `<option value="${esc(r)}">${esc(r)} (${regs[r]})</option>`).join(""));
+  const ex = {};
+  DATA.forEach(p => { const k = p.expl || NO_EXPL; ex[k] = (ex[k]||0) + p.mw; });
+  $("explList").innerHTML = Object.entries(ex).sort((a,b)=>b[1]-a[1])
+    .map(([k,v]) => `<option value="${esc(k)}">${fmt(v,0)} MW</option>`).join("");
+}
+
+function exportCsv(){
+  const cols = ["nom","type","techno","mw","mw_charge","mes","mes_src","expl","expl_src","commune","insee","dep","region","grd","tension","poste","eic","lat","lon"];
+  const q = v => { const s = v == null ? "" : String(v); return /[;"\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s; };
+  const lines = [cols.join(";")].concat(shown.map(m => cols.map(c => {
+    const v = m._p[c]; return typeof v === "number" ? String(v).replace(".",",") : q(v); }).join(";")));
+  const blob = new Blob(["﻿"+lines.join("\n")], {type:"text/csv;charset=utf-8"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = "installations_pv_bess_filtre.csv"; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
+}
+
+// ---------------------------------------------------------------- évènements
+let deb;
+$("f").addEventListener("input", e => { clearTimeout(deb);
+  deb = setTimeout(() => apply(["region","expl"].includes(e.target.id)), e.target.type==="search" ? 250 : 0); });
+$("f").addEventListener("change", e => { if (e.target.id === "region" || e.target.id === "expl") apply(true); });
+$("pchips").addEventListener("click", e => { const r = e.target.dataset.r; if (!r) return;
+  const [a,b] = r.split(","); $("pmin").value = a; $("pmax").value = b || ""; apply(false); });
+$("reset").onclick = () => { Object.assign(F,{t:["PV","BESS"],r:"",e:"",pmin:"",pmax:"",y1:"",y2:"",q:""});
+  writeForm(); apply(false); map.setView([46.6,2.4],6); };
+$("csv").onclick = exportCsv;
+$("toggle").onclick = document.querySelector(".head").onclick = () => $("panel").classList.toggle("open");
+
+// ---------------------------------------------------------------- chargement
+fetch("data/installations.json", {cache:"no-cache"})
+  .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+  .then(j => {
+    META = j.meta;
+    DATA = j.rows.map(r => Object.fromEntries(j.fields.map((f,i) => [f, r[i]])));
+    const d = new Date(META.genere_le);
+    $("sub").textContent = `${fmt(META.n,0)} installations · registre national ODRÉ · mis à jour le ${d.toLocaleDateString("fr-FR")}`;
+    $("foot").innerHTML = `Source : ${esc(META.source)}. Seuil : puissance installée &gt; ${fmt(META.seuil_kw/1000,1)} MW, installations en service non déraccordées. `
+      + `Localisation au centroïde de la commune (pas de coordonnées publiées). `
+      + `L'exploitant n'est pas publié au registre : il est renseigné via <code>data/exploitants.csv</code> ou déduit du nom quand c'est possible.`
+      + (META.sans_coordonnees ? ` ${META.sans_coordonnees} installation(s) non géolocalisée(s).` : "");
+    fillLists(); build(); drawSizes(); readHash(); writeForm(); apply(true);
+  })
+  .catch(err => {
+    $("emptyMsg").innerHTML = `<b>Données absentes.</b><br>Le fichier <code>data/installations.json</code> n'a pas encore été généré. `
+      + `Lancez l'action GitHub « Mise à jour des données » (onglet Actions → Run workflow) ou <code>python scripts/build_data.py</code> en local.`;
+    $("empty").style.display = "flex"; $("sub").textContent = "Aucune donnée"; console.error(err);
+  });
+</script>
+</body>
+</html>
