@@ -83,6 +83,13 @@
   "nom": "FRS00173-CEA-MEGASOL",
   "insee": "13099"
  },
+ "17W0000009156048": {
+  "lat": 49.10484,
+  "lon": 1.408482,
+  "date": "2026-10-28",
+  "nom": "CPES TERRES NEUVES",
+  "insee": "27539"
+ },
  "17W000000917780F": {
   "lat": 44.051328,
   "lon": 5.973644,
@@ -139,6 +146,13 @@
   "nom": "Confidentiel",
   "insee": "03063"
  },
+ "17W0000010223163": {
+  "lat": 46.730389,
+  "lon": 4.657173,
+  "date": "2026-10-28",
+  "nom": "CVSE BISSEY",
+  "insee": "71034"
+ },
  "17W0000010301466": {
   "lat": 43.408853,
   "lon": 1.862483,
@@ -152,6 +166,13 @@
   "date": "2026-10-28",
   "nom": "CVSE LABECEDE",
   "insee": "11181"
+ },
+ "17W000001232875L": {
+  "lat": 48.157184,
+  "lon": -2.788093,
+  "date": "2026-10-28",
+  "nom": "CPES du SAUVAGE-SiteProductionMorale",
+  "insee": "22136"
  },
  "17W000001313855R": {
   "lat": 43.407263,
@@ -174,12 +195,26 @@
   "nom": "CVE SOLAR SERVICE EXPLOITATION",
   "insee": "51351"
  },
+ "17W0000013521533": {
+  "lat": 48.331985,
+  "lon": -0.559867,
+  "date": "2026-10-28",
+  "nom": "LOCOGEN EXPLOITATION",
+  "insee": "53216"
+ },
  "17W0000013835086": {
   "lat": 44.887195,
   "lon": 4.915778,
   "date": "2026-10-28",
   "nom": "PRODSOLAR 1",
   "insee": "26196"
+ },
+ "17W000001434679Y": {
+  "lat": 49.102085,
+  "lon": 1.409039,
+  "date": "2026-10-28",
+  "nom": "SUNNYPROD LES TERRES NEUVES",
+  "insee": "27539"
  },
  "17W000001436133V": {
   "lat": 43.658586,
