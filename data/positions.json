@@ -20,11 +20,25 @@
   "nom": "LES GALLES",
   "insee": "26252"
  },
+ "17W0000010168352": {
+  "lat": 46.450428,
+  "lon": 3.949388,
+  "date": "2026-10-28",
+  "nom": "Confidentiel",
+  "insee": "03063"
+ },
  "17W0000013835086": {
   "lat": 44.887195,
   "lon": 4.915778,
   "date": "2026-10-28",
   "nom": "PRODSOLAR 1",
   "insee": "26196"
+ },
+ "17W000002281292C": {
+  "lat": 46.448839,
+  "lon": 3.952422,
+  "date": "2026-10-28",
+  "nom": "Parc photovoltaïque Energie du Partage 12",
+  "insee": "03063"
  }
 }
