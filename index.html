@@ -213,7 +213,7 @@ function tooltipHtml(p){
     <tr><td>Commune</td><td>${esc(p.commune)}${p.dep ? " ("+esc(p.dep)+")" : ""}</td></tr>
     <tr><td>Réseau</td><td>${esc(p.grd || "–")}${p.tension ? " · "+esc(p.tension) : ""}</td></tr>
   </table>
-  <div class="note">Position : ${p.loc_src === "osm" ? "emprise OpenStreetMap" : "centroïde de la commune"}</div>`;
+  <div class="note">Position : ${p.loc_src === "manuel" ? "corrigée manuellement" + (p.pos_date ? " le " + fmtDate(p.pos_date) : "") : p.loc_src === "osm" ? "emprise OpenStreetMap" : "centroïde de la commune"}</div>`;
 }
 
 function build(){
@@ -328,9 +328,10 @@ $("toggle").onclick = document.querySelector(".head").onclick = () => $("panel")
 // ---------------------------------------------------------------- chargement
 fetch("data/installations.json", {cache:"no-cache"})
   .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
-  .then(j => {
+  .then(async j => {
     META = j.meta;
     DATA = j.rows.map(r => Object.fromEntries(j.fields.map((f,i) => [f, r[i]])));
+    await EDIT.load(); EDIT.applyTo(DATA);
     const d = new Date(META.genere_le);
     $("sub").textContent = `${fmt(META.n,0)} installations · registre national ODRÉ · mis à jour le ${d.toLocaleDateString("fr-FR")}`;
     $("foot").innerHTML = `Source : ${esc(META.source)}. Seuil : puissance installée &gt; ${fmt(META.seuil_kw/1000,1)} MW, installations en service non déraccordées. `
@@ -338,7 +339,7 @@ fetch("data/installations.json", {cache:"no-cache"})
       + `L'exploitant n'est pas publié au registre : il provient, par ordre de priorité, de <code>data/exploitants.csv</code>, de la base SIRENE (société de production d'électricité de la commune et sa holding), d'OpenStreetMap, ou du nom de l'installation.`
       + (META.osm && META.osm.localisees ? ` ${fmt(META.osm.localisees,0)} installations positionnées sur leur emprise OpenStreetMap, les autres au centroïde de la commune.` : "")
       + (META.sans_coordonnees ? ` ${META.sans_coordonnees} installation(s) non géolocalisée(s).` : "");
-    fillLists(); build(); drawSizes(); readHash(); writeForm(); apply(true);
+    fillLists(); build(); EDIT.attach(markers); drawSizes(); readHash(); writeForm(); apply(true);
   })
   .catch(err => {
     $("emptyMsg").innerHTML = `<b>Données absentes.</b><br>Le fichier <code>data/installations.json</code> n'a pas encore été généré. `
@@ -346,5 +347,6 @@ fetch("data/installations.json", {cache:"no-cache"})
     $("empty").style.display = "flex"; $("sub").textContent = "Aucune donnée"; console.error(err);
   });
 </script>
+<script src="editor.js"></script>
 </body>
 </html>

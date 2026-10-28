@@ -28,6 +28,8 @@ jobs:
         with:
           python-version: "3.12"
       - name: Construire data/installations.json
+        env:
+          PYTHONUNBUFFERED: "1"
         run: python scripts/build_data.py
       - name: Publier si changement
         run: |
@@ -38,5 +40,5 @@ jobs:
             echo "Aucun changement."
           else
             git commit -m "Données : mise à jour $(date -u +%Y-%m-%d)"
-            git push
+            git pull --rebase origin main && git push
           fi

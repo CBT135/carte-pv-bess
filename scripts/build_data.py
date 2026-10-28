@@ -154,7 +154,8 @@ def load_communes(path=None):
 # Motifs reconnus dans le nom d'installation (indicatif : marqué « déduit du nom »).
 OPERATEURS = [
     (r"\bTOTAL ?ENERGIES\b|\bTOTAL QUADRAN\b|\bQUADRAN\b|\bTOTAL SOLAR\b", "TotalEnergies"),
-    (r"\bEDF ?(RENOUVELABLES|EN|ENR|R)\b|\bEDF SOLAIRE\b", "EDF Renouvelables"),
+    (r"\bEDF ?(RENOUVELABLES|EN|ENR|R)\b|\bEDF SOLAIRE\b|\bEDF POWER SOLUTIONS\b", "EDF Renouvelables"),
+    (r"\bNW ?JOULES\b|\bNWJ\b|\bNW GROUPE\b", "NW Groupe"),
     (r"\bCNR\b|COMPAGNIE NATIONALE DU RHONE", "CNR"),
     (r"\bENGIE\b|\bGREEN ?YELLOW\b", "ENGIE"),
     (r"\bURBA ?\d+|\bURBASOLAR\b", "Urbasolar"),
@@ -189,7 +190,7 @@ OPERATEURS = [
     (r"\bTERRE ET LAC\b", "Terre et Lac"),
     (r"\bGAZEL\b", "GazelEnergie"),
     (r"\bSOLVEO\b", "Solveo"),
-    (r"\bIREL\b|\bIRISOLARIS\b", "Irisolaris"),
+    (r"\bIREL\b|\bIRISOLARIS\b|\bIRISOLAR\b", "Irisolaris"),
     (r"\bVALOREM\b", "Valorem"),
     (r"\bABO ?(WIND|ENERGY)\b", "ABO Energy"),
     (r"\bWPD\b", "wpd"),

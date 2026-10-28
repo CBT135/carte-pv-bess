@@ -11,6 +11,7 @@ import json
 import math
 import re
 import sys
+import time
 import unicodedata
 import urllib.parse
 import urllib.request
@@ -21,16 +22,29 @@ OVERPASS = [
     "https://overpass.kumi.systems/api/interpreter",
     "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
 ]
+# Requêtes découpées en tuiles (une requête nationale dépasse les limites des serveurs Overpass)
 QUERY = """
-[out:json][timeout:900];
-area["ISO3166-1"~"^(FR|GP|MQ|GF|RE|YT)$"]->.fr;
+[out:json][timeout:240][bbox:{bbox}];
 (
-  nwr["power"="plant"]["plant:source"~"solar|battery"](area.fr);
-  nwr["power"="generator"]["generator:source"~"solar|battery"]["generator:method"!="thermal"]["operator"](area.fr);
-  nwr["power"="generator"]["generator:source"~"solar|battery"]["generator:output:electricity"~"MW"](area.fr);
+  nwr["power"="plant"]["plant:source"~"solar|battery"];
+  nwr["power"="generator"]["generator:source"~"solar|battery"]["operator"];
+  nwr["power"="generator"]["generator:source"~"solar|battery"]["generator:output:electricity"~"MW"];
 );
-out center tags;
+out center tags qt;
 """
+
+
+def tiles():
+    out = []
+    lats = [41.3, 43.0, 44.5, 46.0, 47.5, 49.0, 51.2]
+    lons = [-5.3, -1.5, 1.5, 4.5, 9.7]
+    for a, b in zip(lats, lats[1:]):
+        for c, d in zip(lons, lons[1:]):
+            out.append((a, c, b, d))
+    out += [(15.8, -61.9, 16.6, -60.9), (14.35, -61.3, 14.95, -60.75), (2.1, -54.7, 5.9, -51.5),
+            (-21.45, 55.15, -20.8, 55.9), (-13.1, 44.95, -12.55, 45.35)]
+    return out
+
 
 STOP = set("""centrale centrales solaire solaires photovoltaique photovoltaiques pv parc ferme champ champs
 de du des la le les l d et en sur sas sarl sa snc sci centr adp stockage stock batterie batteries
@@ -66,20 +80,41 @@ def km(a, b, c, d):
     return math.hypot((c - a) * 111.2, (d - b) * 111.2 * math.cos(math.radians((a + c) / 2)))
 
 
-def fetch_osm(cache: Path, timeout=1000):
-    data = None
-    body = urllib.parse.urlencode({"data": QUERY}).encode()
+def _query(bbox, timeout):
+    body = urllib.parse.urlencode({"data": QUERY.replace("{bbox}", ",".join(map(str, bbox)))}).encode()
+    last = None
     for url in OVERPASS:
+        for attempt in range(1):
+            try:
+                req = urllib.request.Request(url, data=body, headers={"User-Agent": "carte-pv-bess/1.0"})
+                with urllib.request.urlopen(req, timeout=timeout) as r:
+                    j = json.loads(r.read())
+                if "remark" in j and "runtime error" in j["remark"]:
+                    raise RuntimeError(j["remark"][:120])
+                return j.get("elements", [])
+            except Exception as e:
+                last = e
+                time.sleep(5 * (attempt + 1))
+    raise RuntimeError(f"Overpass indisponible ({last})")
+
+
+def fetch_osm(cache: Path, timeout=200, budget_s=900):
+    elements, failed, t0 = {}, 0, time.time()
+    for k, bb in enumerate(tiles()):
+        if time.time() - t0 > budget_s:
+            failed += len(tiles()) - k
+            print("  Overpass : budget temps dépassé", file=sys.stderr)
+            break
         try:
-            print(f"Overpass : {url}…", file=sys.stderr)
-            req = urllib.request.Request(url, data=body, headers={"User-Agent": "carte-pv-bess/1.0"})
-            with urllib.request.urlopen(req, timeout=timeout) as r:
-                data = json.loads(r.read())
-            if data.get("elements"):
-                break
+            els = _query(bb, timeout)
+            for el in els:
+                elements[(el["type"], el["id"])] = el
+            print(f"  Overpass tuile {k + 1}/{len(tiles())} : {len(els)} objets", file=sys.stderr)
         except Exception as e:
-            print(f"  échec ({e})", file=sys.stderr)
-            data = None
+            failed += 1
+            print(f"  Overpass tuile {k + 1} : échec ({e})", file=sys.stderr)
+        time.sleep(2)
+    data = {"elements": list(elements.values())} if elements else None
     if data and data.get("elements"):
         items = []
         for el in data["elements"]:
@@ -98,6 +133,11 @@ def fetch_osm(cache: Path, timeout=1000):
                 "owner": t.get("owner", ""),
                 "mw": parse_mw(t.get("plant:output:electricity") or t.get("generator:output:electricity")),
             })
+        if failed and cache.exists():  # tuiles en échec : on complète avec l'extraction précédente
+            ids = {o["id"] for o in items}
+            prev = [o for o in json.loads(cache.read_text(encoding="utf-8")) if o["id"] not in ids]
+            items += prev
+            print(f"  Overpass : {failed} tuile(s) en échec, {len(prev)} objets repris du cache", file=sys.stderr)
         cache.write_text(json.dumps(items, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
         print(f"  {len(items)} objets OSM (cache mis à jour)", file=sys.stderr)
         return items, "Overpass"
