@@ -48,7 +48,7 @@ const EDIT = (() => {
     if (r.status === 404 && !opts.method) return null;
     if (!r.ok){
       const j = await r.json().catch(()=>({}));
-      if (r.status === 401) throw new Error("Jeton GitHub refusé (expiré ou révoqué) : refaites la configuration.");
+      if (r.status === 401) throw new Error("Jeton GitHub refusé (expiré ou révoqué) : collez un nouveau jeton ci-dessus puis réessayez.");
       if (r.status === 403) throw new Error("Jeton GitHub sans droit d'écriture sur ce dépôt.");
       throw new Error(`GitHub ${r.status} : ${j.message || r.statusText}`);
     }
@@ -108,6 +108,7 @@ const EDIT = (() => {
           et stocké dans <code>data/editor.json</code> ; il ne sera plus demandé ensuite.</div>
         <label for="edTok">Jeton GitHub</label><input id="edTok" type="password" autocomplete="off" placeholder="github_pat_…">
       </div>
+      <div id="edReplace" style="display:none;margin-top:4px"><a href="#" id="edReplaceLink" style="font-size:12px;color:#5d6b7a">Jeton expiré ? Remplacer le jeton GitHub</a></div>
       <label for="edPw">Mot de passe</label><input id="edPw" type="password" autocomplete="current-password">
       <div id="edMsg"></div>
       <div class="row"><button type="button" id="edCancel">Fermer</button><button type="button" id="edGo" class="primary">Enregistrer</button></div>
@@ -205,9 +206,13 @@ const EDIT = (() => {
     try{ const r = await fetch(`data/editor.json?t=${Date.now()}`, {cache:"no-store"}); editorBlob = r.ok ? await r.json() : null; }
     catch(e){ editorBlob = null; }
     $("edSetup").style.display = editorBlob ? "none" : "block";
+    $("edReplace").style.display = editorBlob ? "block" : "none";
+    $("edTok").value = "";
     $("edModal").style.display = "flex";
     setTimeout(() => (editorBlob ? $("edPw") : $("edTok")).focus(), 50);
   };
+  const showSetup = () => { $("edSetup").style.display = "block"; $("edReplace").style.display = "none"; $("edTok").focus(); };
+  $("edReplaceLink").onclick = e => { e.preventDefault(); showSetup(); };
   $("edCancel").onclick = () => { $("edModal").style.display = "none"; };
   $("edPw").addEventListener("keydown", e => { if (e.key === "Enter") $("edGo").click(); });
   $("edGo").onclick = async () => {
@@ -217,12 +222,14 @@ const EDIT = (() => {
     $("edGo").disabled = true;
     try{
       let token;
-      if (editorBlob){
+      const newTok = $("edTok").value.trim();
+      if (editorBlob && !newTok){
         say("Vérification du mot de passe…");
         token = await decryptToken(editorBlob, pw);
       } else {
-        token = $("edTok").value.trim();
+        token = newTok;
         if (!token) throw new Error("Collez le jeton GitHub.");
+        if (editorBlob) await decryptToken(editorBlob, pw);  // remplacement : il faut connaître le mot de passe actuel
         say("Configuration de l'enregistrement…");
         const blob = await encryptToken(token, pw);
         const cur = await gh("data/editor.json", token);
@@ -247,6 +254,7 @@ const EDIT = (() => {
       setTimeout(() => { $("edModal").style.display = "none"; }, 2200);
     }catch(e){
       say(e.message || String(e), "err");
+      if (/Jeton GitHub refusé/.test(e.message || "")) showSetup();
     }finally{
       $("edGo").disabled = false; $("edPw").value = "";
     }
