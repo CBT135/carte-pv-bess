@@ -11,9 +11,10 @@ SIRENE : établissements de production d'électricité (NAF 35.11Z)…
   téléchargement https://static.data.gouv.fr/resources/base-sirene-des-entreprises-et-de-leurs-etablissements-siren-siret/20261001-073325/stock-stockunitelegale-parquet.parquet
   SIRENE : 390 / 510 sociétés candidates CRE retrouvées
   SIRENE stock : 242110 établissements 35.11Z actifs dans 30366 communes, 159694 sociétés de production en France
-  SIRENE national : 304 installations rattachées par le nom du site ou de la commune
-  dirigeants : 33 SIREN interrogés en 6 s (0 échecs, 1 restants) ; 1425 exploitants précisés
-  SIRENE : {'mode': 'stock Parquet', 'societes_rattachees': 1755, 'national': 304, 'exploitants': 1691, 'holdings': 1425}
+  SIRENE national : 284 installations rattachées par le nom du site ou de la commune
+  dirigeants : 134 SIREN interrogés en 914 s (0 échecs, 3 restants) ; 1522 exploitants précisés
+  SIRENE : {'mode': 'stock Parquet', 'societes_rattachees': 1892, 'national': 284, 'exploitants': 1716, 'holdings': 1522}
   Wikidata : 14 centrales solaires / stockage avec exploitant
   Wikidata : {'source': 'Wikidata', 'objets': 14, 'exploitants': 2, 'localisees': 1}
+  Déduction : 32 par les autres tranches du site, 7 par la codification du nom
 OK : 3673 installations (14624.4 MW PV, 2250.6 MW BESS), 0 sans coordonnées, exclusions {'≤ seuil': 96479, 'agrégats < 36 kW': 33611}
