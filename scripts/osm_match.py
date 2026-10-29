@@ -168,7 +168,7 @@ def fetch_osm(cache: Path, timeout=200, budget_s=900, max_age_days=14):
     return items, f"Overpass ({len(tl) - missing}/{len(tl)} tuiles)"
 
 
-def match(recs, osm, canon):
+def match(recs, osm, canon, src="osm"):
     """recs : installations (lat/lon = centroïde commune). Modifie recs en place. canon(str)->str."""
     grid = {}
     for i, o in enumerate(osm):
@@ -221,13 +221,14 @@ def match(recs, osm, canon):
                 continue
         used_mw[oi] = used_mw.get(oi, 0) + r["mw"]
         done.add(ri)
-        r["lat"], r["lon"] = o["lat"], o["lon"]
-        r["loc_src"] = "osm"
-        r["osm"] = o["id"]
-        n_loc += 1
+        if r.get("loc_src") in (None, "commune"):
+            r["lat"], r["lon"] = o["lat"], o["lon"]
+            r["loc_src"] = src
+            n_loc += 1
+        r["osm" if src == "osm" else src] = o["id"]
         op = o["operator"] or o["owner"]
         if op and r.get("expl_src") != "fichier":
             r["expl"] = canon(op) or op.strip()
-            r["expl_src"] = "osm"
+            r["expl_src"] = src
             n_expl += 1
     return n_loc, n_expl

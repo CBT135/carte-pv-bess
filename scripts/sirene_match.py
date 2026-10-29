@@ -11,6 +11,7 @@ import json
 import re
 import sys
 import threading
+import unicodedata
 import time
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 import urllib.parse
@@ -62,7 +63,7 @@ ROLE_KO = re.compile(r"commissaire|liquidateur|mandataire", re.I)
 
 
 def _holdings(e):
-    """Dirigeants personnes morales exerçant la direction (pas les commissaires aux comptes)."""
+    """Dirigeants personnes morales exerçant la direction (président, gérant…), hors commissaires aux comptes."""
     out = []
     for d in e.get("dirigeants") or []:
         if d.get("type_dirigeant") != "personne morale" or not d.get("denomination"):
@@ -70,7 +71,7 @@ def _holdings(e):
         q = d.get("qualite") or ""
         if ROLE_KO.search(q) or (q and not ROLE_OK.search(q)):
             continue
-        out.append(d["denomination"])
+        out.append({"nom": d["denomination"].strip(), "siren": d.get("siren")})
     return out
 
 
@@ -90,7 +91,7 @@ def fetch_commune(insee, max_pages=4):
                 "sigle": e.get("sigle") or "",
                 "enseignes": [x for m in etabs for x in (m.get("liste_enseignes") or [])],
                 "siret": etabs[0].get("siret"),
-                "dirigeants_pm": _holdings(e),
+                "dirigeants_pm": [h["nom"] for h in _holdings(e)],
                 "siege_cp": (e.get("siege") or {}).get("code_postal"),
             })
         if page >= (j.get("total_pages") or 1):
@@ -243,6 +244,23 @@ def load_stock(tmp: Path):
           AND e.etatAdministratifEtablissement = 'A'
           AND e.codeCommuneEtablissement IS NOT NULL
     """).fetchall()
+    national = []
+    try:
+        national = [{"siren": r[0], "nom": r[1] or "", "sigle": r[2] or ""} for r in duckdb.sql(f"""
+            SELECT siren,
+                   any_value(coalesce(denominationUniteLegale,
+                        trim(coalesce(prenom1UniteLegale,'') || ' ' || coalesce(nomUniteLegale,'')))),
+                   any_value(coalesce(sigleUniteLegale, ''))
+            FROM read_parquet('{paths['ul']}')
+            WHERE etatAdministratifUniteLegale = 'A'
+              AND (activitePrincipaleUniteLegale = '35.11Z'
+                   OR siren IN (SELECT siren FROM read_parquet('{paths['et']}')
+                                WHERE activitePrincipaleEtablissement = '35.11Z'
+                                  AND etatAdministratifEtablissement = 'A'))
+            GROUP BY siren
+        """).fetchall()]
+    except Exception as e:
+        print(f"  SIRENE : liste nationale indisponible ({e})", file=sys.stderr)
     by = defaultdict(dict)
     for siret, siren, insee, e1, e2, nom, sigle in rows:
         c = by[insee].get(siren)
@@ -253,19 +271,108 @@ def load_stock(tmp: Path):
                             "enseignes": [x for x in (e1, e2) if x], "dirigeants_pm": [], "siege_cp": None}
     for p in paths.values():
         Path(p).unlink(missing_ok=True)
-    print(f"  SIRENE stock : {len(rows)} établissements 35.11Z actifs dans {len(by)} communes", file=sys.stderr)
-    return {k: list(v.values()) for k, v in by.items()}
+    print(f"  SIRENE stock : {len(rows)} établissements 35.11Z actifs dans {len(by)} communes, "
+          f"{len(national)} sociétés de production en France", file=sys.stderr)
+    return {k: list(v.values()) for k, v in by.items()}, national
 
 
-def enrich_holdings(recs, cache: Path, canon, budget_s=900, workers=6):
-    """Pour les sociétés rattachées, récupère le président / gérant personne morale (API, cache incrémental)."""
+# --------------------------------------------------------------------------- recherche nationale par nom
+WEAK = set("""saint sainte saints saintes mont val bois port pont grand grande haut haute bas basse vieux vieille
+neuf neuve nouvelle ville villa champ champs mas plaine plateau zone parc site lieu dit route rue avenue ancien
+ancienne france francaise""".split())
+NON_PV = re.compile(r"EOLIEN|EOLE\b|WIND|\bVENT\b|HYDRO|METHA|BIOGA|BIOMAS|COGEN|MICROCENTRALE|MOULIN|BARRAGE|"
+                    r"CHAUFFERIE|GEOTHERM|HYDROGENE", re.I)
+PV_HINT = re.compile(r"SOLAIRE|SOLAR|PHOTOVOLT|\bPV\b|\bCS\b|\bCPV\b|\bCSP\b|OMBRIERE|HELIO|\bSUN|SOLEIL|"
+                     r"\bSOL\b|PHOTON|TOITURE|AGRIVOLT|\bSPV\b|\bCSOL", re.I)
+BESS_HINT = re.compile(r"STOCKAGE|STORAGE|BATTER|\bBESS\b|FLEX|\bSTOCK\b|\bSTORE\b", re.I)
+SITE_RX = re.compile(r"(?:\bDE LA|\bDE L'|\bDU|\bDES|\bDE|\bD')\s+([^()]+?)\s*(?:\([^)]*\))?\s*$", re.I)
+
+
+def _plain(s):
+    return unicodedata.normalize("NFKD", str(s or "")).encode("ascii", "ignore").decode().upper()
+
+
+def _strong(toks):
+    return {t for t in toks if len(t) >= 4 and t not in WEAK}
+
+
+def national_match(recs, national, canon, homonymes=(), norm=None, max_postings=40):
+    """Rattache les installations sans société à une société de production (NAF 35.11Z) de toute la France
+    dont le nom contient le nom du site ou de la commune (sociétés de projet domiciliées chez le développeur)."""
+    comps, index = [], defaultdict(list)
+    for c in national:
+        name = " ".join([c["nom"], c["sigle"]])
+        if not name.strip() or NON_PV.search(_plain(name)):
+            continue
+        c = dict(c, _tok=tokens(name), _pv=bool(PV_HINT.search(_plain(name))),
+                 _bess=bool(BESS_HINT.search(_plain(name))))
+        k = len(comps)
+        comps.append(c)
+        for t in _strong(c["_tok"]):
+            index[t].append(k)
+    n = 0
+    for r in recs:
+        if r.get("siren") or r.get("expl_src") == "fichier":
+            continue
+        keys = []
+        m = SITE_RX.search(_plain(r["nom"]))
+        if m:
+            keys.append(tokens(m.group(1)))
+        if not (norm and norm(r["commune"]) in homonymes):  # commune homonyme : nom insuffisant
+            keys.append(tokens(r["commune"]))
+        rt = tokens(r["nom"])
+        best = None
+        for key in keys:
+            strong = _strong(key)
+            if not strong:
+                continue
+            post = min((index.get(t, []) for t in strong), key=len)
+            if not post or len(post) > max_postings:
+                continue
+            scored = []
+            for k in post:
+                c = comps[k]
+                if not key <= c["_tok"]:
+                    continue
+                s = len(rt & c["_tok"] - key)
+                if r["type"] == "PV":
+                    s += 2 if c["_pv"] else 0
+                    s -= 3 if c["_bess"] and not c["_pv"] else 0
+                else:
+                    s += 3 if c["_bess"] else 0
+                    s -= 1 if c["_pv"] and not c["_bess"] else 0
+                # nom court = société dédiée au site (« CS DE X ») plutôt qu'une société générique
+                s -= 0.1 * max(0, len(c["_tok"] - key) - 1)
+                scored.append((s, c))
+            if not scored:
+                continue
+            scored.sort(key=lambda x: -x[0])
+            s0, c0 = scored[0]
+            s1 = scored[1][0] if len(scored) > 1 else -9
+            if s0 >= 1.5 and (s0 - s1 >= 0.9 or scored[1][1]["nom"] == c0["nom"]):
+                best = c0
+                break
+        if not best:
+            continue
+        r["siren"], r["societe"] = best["siren"], best["nom"]
+        g = canon(best["nom"])
+        if g:
+            r["expl"], r["expl_src"] = g, "sirene"
+        elif not r.get("expl"):
+            r["expl"], r["expl_src"] = best["nom"], "sirene"
+        n += 1
+    print(f"  SIRENE national : {n} installations rattachées par le nom du site ou de la commune", file=sys.stderr)
+    return n
+
+
+# --------------------------------------------------------------------------- chaînes de holdings
+def enrich_holdings(recs, cache: Path, canon, budget_s=1200, workers=6, depth=4):
+    """Remonte la chaîne président → président… (personnes morales) jusqu'à un groupe connu ou au sommet.
+    Cache incrémental par SIREN (data/sirene_dirigeants.json)."""
     raw = json.loads(cache.read_text(encoding="utf-8")) if cache.exists() else {}
-    cache_d = raw.get("siren", {}) if raw.get("v") == CACHE_V else {}
+    cache_d = raw.get("siren", {}) if raw.get("v") == 3 else {}
     today = time.strftime("%Y-%m-%d")
     cutoff = time.strftime("%Y-%m-%d", time.gmtime(time.time() - MAX_AGE_DAYS * 86400))
-    sirens = sorted({r["siren"] for r in recs if r.get("siren")})
-    todo = [s for s in sirens if s not in cache_d or cache_d[s]["d"] < cutoff]
-    todo.sort(key=lambda s: cache_d.get(s, {}).get("d", ""))
     t0, ok, fails = time.time(), 0, 0
 
     def one(siren):
@@ -275,44 +382,78 @@ def enrich_holdings(recs, cache: Path, canon, budget_s=900, workers=6):
                 return _holdings(e)
         return []
 
-    with ThreadPoolExecutor(workers) as ex:
-        futs, it = {}, iter(todo)
+    def fetch(sirens):
+        nonlocal ok, fails
+        todo = [s for s in sirens if s and (s not in cache_d or cache_d[s]["d"] < cutoff)]
+        todo.sort(key=lambda s: cache_d.get(s, {}).get("d", ""))
+        with ThreadPoolExecutor(workers) as ex:
+            futs, it = {}, iter(todo)
 
-        def submit():
-            if time.time() - t0 > budget_s or fails > 50:
-                return
-            s = next(it, None)
-            if s:
-                futs[ex.submit(one, s)] = s
-        for _ in range(workers * 2):
-            submit()
-        while futs:
-            done, _ = wait(futs, return_when=FIRST_COMPLETED)
-            for f in done:
-                s = futs.pop(f)
-                try:
-                    cache_d[s] = {"d": today, "h": f.result()}
-                    ok += 1
-                except Exception as e:
-                    fails += 1
-                    if fails <= 3:
-                        print(f"  dirigeants {s} : {e}", file=sys.stderr)
+            def submit():
+                if time.time() - t0 > budget_s or fails > 50:
+                    return
+                s = next(it, None)
+                if s:
+                    futs[ex.submit(one, s)] = s
+            for _ in range(workers * 2):
                 submit()
+            while futs:
+                done, _ = wait(futs, return_when=FIRST_COMPLETED)
+                for f in done:
+                    s = futs.pop(f)
+                    try:
+                        cache_d[s] = {"d": today, "h": f.result()}
+                        ok += 1
+                    except Exception as e:
+                        fails += 1
+                        if fails <= 3:
+                            print(f"  dirigeants {s} : {e}", file=sys.stderr)
+                    submit()
+
+    level = {r["siren"] for r in recs if r.get("siren")}
+    seen = set()
+    for _ in range(depth):
+        fetch(level)
+        seen |= level
+        nxt = set()
+        for s in level:
+            for h in (cache_d.get(s) or {}).get("h") or []:
+                if h.get("siren") and h["siren"] not in seen and not canon(h["nom"]):
+                    nxt.add(h["siren"])
+                    break  # on suit le président (premier dirigeant)
+        if not nxt:
+            break
+        level = nxt
     if ok:
-        cache.write_text(json.dumps({"v": CACHE_V, "siren": cache_d}, ensure_ascii=False, separators=(",", ":")),
+        cache.write_text(json.dumps({"v": 3, "siren": cache_d}, ensure_ascii=False, separators=(",", ":")),
                          encoding="utf-8")
+
     n = 0
     for r in recs:
-        h = (cache_d.get(r.get("siren") or "") or {}).get("h") or []
-        if not h or r.get("expl_src") == "fichier":
+        if not r.get("siren"):
             continue
-        group = next((canon(d) for d in h if canon(d)), None)
+        chain, s, group, guard = [], r["siren"], None, set()
+        while s and s not in guard and len(chain) < depth:
+            guard.add(s)
+            hs = (cache_d.get(s) or {}).get("h") or []
+            if not hs:
+                break
+            group = next((canon(h["nom"]) for h in hs if canon(h["nom"])), None)
+            chain.append(hs[0]["nom"])
+            if group:
+                break
+            s = hs[0].get("siren")
+        r["chaine"] = " → ".join([r["societe"] or ""] + chain) if chain else None
+        if r.get("expl_src") == "fichier":
+            continue
+        group = group or canon(r["societe"] or "")
         if group:
             r["expl"], r["expl_src"] = group, "sirene"
             n += 1
-        elif r.get("expl_src") == "sirene" and r.get("expl") == r.get("societe"):
-            r["expl"] = h[0].strip()  # holding plutôt que la société de projet
+        elif chain and r.get("expl_src") in (None, "sirene"):
+            r["expl"], r["expl_src"] = chain[-1], "sirene"  # sommet de la chaîne connue
             n += 1
-    print(f"  dirigeants : {ok} SIREN interrogés en {int(time.time() - t0)} s ({fails} échecs), "
-          f"{len(sirens) - sum(1 for s in sirens if s in cache_d)} restants ; {n} exploitants précisés", file=sys.stderr)
+    pending = sum(1 for s in level if s not in cache_d)
+    print(f"  dirigeants : {ok} SIREN interrogés en {int(time.time() - t0)} s ({fails} échecs, "
+          f"{pending} restants) ; {n} exploitants précisés", file=sys.stderr)
     return n

@@ -1,0 +1,6 @@
+cle;groupe
+# Rattache une société ou une holding (nom exact tel qu'affiché sur la carte) à un groupe / exploitant.
+# Prioritaire sur la reconnaissance automatique. cle = nom exact, ou re:<expression régulière>.
+# La liste data/holdings_a_classer.csv (régénérée à chaque mise à jour) donne les noms à classer, triés par MW :
+# copiez-y les lignes utiles en remplissant la colonne groupe. Exemple :
+# TERRES D'ENERGIE;Terres d'Énergie

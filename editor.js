@@ -17,6 +17,10 @@ const EDIT = (() => {
 
   let POS = {};            // corrections enregistrées
   let pending = {};        // corrections en cours (null = retour à la position d'origine)
+  let pendingExpl = {};    // exploitants saisis (clé exploitants.csv → libellé, null = retirer la saisie)
+  let EXPL = {};           // data/exploitants.csv (clés exactes, en majuscules)
+  const csvKey = p => p.eic || p.nom;
+  const upk = s => String(s || "").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
   let on = false, drag = null;
 
   // ------------------------------------------------------------ utilitaires
@@ -59,14 +63,31 @@ const EDIT = (() => {
   }
 
   // ------------------------------------------------------------ chargement
+  function parseCsv(text){
+    const out = {};
+    String(text || "").split(/\r?\n/).forEach(l => {
+      if (!l.trim() || l.startsWith("#")) return;
+      const i = l.indexOf(";"); if (i < 1) return;
+      const k = l.slice(0, i).trim(), v = l.slice(i + 1).split(";")[0].trim();
+      if (!v || k.toLowerCase() === "cle" || k.toLowerCase().startsWith("re:")) return;
+      out[upk(k)] = v;
+    });
+    return out;
+  }
   async function load(){
     try{
       const r = await fetch("data/positions.json", {cache:"no-cache"});
       POS = r.ok ? await r.json() : {};
     }catch(e){ POS = {}; }
+    try{
+      const r = await fetch("data/exploitants.csv", {cache:"no-cache"});
+      EXPL = r.ok ? parseCsv(await r.text()) : {};
+    }catch(e){ EXPL = {}; }
   }
   function applyTo(data){
     data.forEach(p => {
+      const e = EXPL[upk(p.eic)] || EXPL[upk(p.nom)];
+      if (e){ p._origExpl = p._origExpl || [p.expl, p.expl_src]; p.expl = e; p.expl_src = "fichier"; }
       const c = POS[keyOf(p)];
       if (c){ p._orig = p._orig || [p.lat, p.lon, p.loc_src]; p.lat = c.lat; p.lon = c.lon; p.loc_src = "manuel"; p.pos_date = c.date; }
     });
@@ -101,7 +122,7 @@ const EDIT = (() => {
       <button type="button" id="edUndo">Annuler</button>
       <button type="button" id="edSave" class="primary">Enregistrer…</button></div>
     <div id="edModal"><div class="box">
-      <h2>Enregistrer les positions</h2>
+      <h2>Enregistrer les modifications</h2>
       <div id="edSetup" style="display:none">
         <div class="help">Première utilisation : collez un jeton GitHub <i>fine-grained</i> limité au dépôt
           <b>${OWNER}/${REPO}</b> avec la permission <b>Contents : Read and write</b>. Il sera chiffré avec le mot de passe
@@ -117,30 +138,32 @@ const EDIT = (() => {
   const ctl = L.control({position:"topleft"});
   ctl.onAdd = () => {
     const b = L.DomUtil.create("button", "ed-btn");
-    b.type = "button"; b.textContent = "✥ Repositionner"; b.id = "edToggle";
-    b.title = "Déplacer les installations à la souris";
+    b.type = "button"; b.textContent = "✎ Éditer"; b.id = "edToggle";
+    b.title = "Déplacer les installations à la souris et saisir leur exploitant";
     L.DomEvent.disableClickPropagation(b);
     b.onclick = () => toggle();
     return b;
   };
   ctl.addTo(map);
 
-  const n = () => Object.keys(pending).length;
+  const n = () => Object.keys(pending).length + Object.keys(pendingExpl).length;
   function refreshBar(){
     $("edBar").style.display = on ? "flex" : "none";
     $("edTxt").textContent = n() ? `${n()} modification(s) non enregistrée(s)` :
-      "Glissez un point pour le déplacer · clic droit = position d'origine";
+      "Glissez un point pour le déplacer · cliquez-le pour saisir son exploitant · clic droit = position d'origine";
     $("edUndo").disabled = $("edSave").disabled = !n();
   }
   function toggle(force){
-    if (on && n() && force === undefined && !confirm("Quitter le mode repositionnement ? Les modifications non enregistrées restent en attente.")) return;
+    if (on && n() && force === undefined && !confirm("Quitter le mode édition ? Les modifications non enregistrées restent en attente.")) return;
+    if (on) closeExpl();
     on = force !== undefined ? force : !on;
     $("edToggle").classList.toggle("on", on);
     map.getContainer().classList.toggle("ed-on", on);
     refreshBar();
   }
   function styleMoved(m){
-    const moved = m._p.loc_src === "manuel" || pending[keyOf(m._p)] !== undefined;
+    const moved = m._p.loc_src === "manuel" || pending[keyOf(m._p)] !== undefined
+      || m._p.expl_src === "fichier" || pendingExpl[csvKey(m._p)] !== undefined;
     m.setStyle(moved ? {color:"#18212b", weight:1.6, dashArray:null} : {color:"#ffffff", weight:.8});
     m._moved = moved;
   }
@@ -152,10 +175,10 @@ const EDIT = (() => {
       m.on("mousedown", e => {
         if (!on) return;
         L.DomEvent.stop(e);
-        drag = m; m.closeTooltip();
+        drag = m; dragStart = e.containerPoint; dragMoved = false; m.closeTooltip();
         map.dragging.disable();
-        map.getContainer().classList.add("ed-drag");
       });
+      m.on("click", e => { if (on) L.DomEvent.stop(e); });
       m.on("contextmenu", e => {
         if (!on) return;
         L.DomEvent.stop(e);
@@ -169,13 +192,20 @@ const EDIT = (() => {
       m.off("mouseout"); m.on("mouseout", () => { if (!m._moved) m.setStyle({color:"#ffffff", weight:.8}); else styleMoved(m); });
     });
   }
-  map.on("mousemove", e => { if (drag) drag.setLatLng(e.latlng); });
+  let dragStart = null, dragMoved = false;
+  map.on("mousemove", e => {
+    if (!drag) return;
+    if (!dragMoved && dragStart && e.containerPoint.distanceTo(dragStart) < 4) return;
+    if (!dragMoved){ dragMoved = true; map.getContainer().classList.add("ed-drag"); closeExpl(); }
+    drag.setLatLng(e.latlng);
+  });
   const endDrag = () => {
     if (!drag) return;
     const m = drag, p = m._p, ll = m.getLatLng();
     drag = null;
     map.dragging.enable();
     map.getContainer().classList.remove("ed-drag");
+    if (!dragMoved){ openExpl(m); return; }
     if (!p._orig) p._orig = [p.lat, p.lon, p.loc_src];
     p.lat = +ll.lat.toFixed(6); p.lon = +ll.lng.toFixed(6); p.loc_src = "manuel";
     pending[keyOf(p)] = {lat:p.lat, lon:p.lon, nom:p.nom, insee:p.insee};
@@ -195,7 +225,70 @@ const EDIT = (() => {
       else if (p._orig){ [p.lat, p.lon] = p._orig; p.loc_src = p._orig[2]; }
       m.setLatLng([p.lat, p.lon]);
     });
-    pending = {}; markers.forEach(styleMoved); refreshBar();
+    markers.forEach(m => {
+      const p = m._p, k = csvKey(p);
+      if (pendingExpl[k] === undefined) return;
+      const saved = EXPL[upk(p.eic)] || EXPL[upk(p.nom)];
+      if (saved){ p.expl = saved; p.expl_src = "fichier"; }
+      else if (p._origExpl){ [p.expl, p.expl_src] = p._origExpl; }
+    });
+    pending = {}; pendingExpl = {}; closeExpl(); markers.forEach(styleMoved); refreshBar();
+  };
+
+  // ------------------------------------------------------------ saisie de l'exploitant
+  document.body.insertAdjacentHTML("beforeend", `
+    <div id="edExpl"><div class="hd"><b id="edExNom"></b><button type="button" id="edExX" aria-label="Fermer">×</button></div>
+      <div id="edExInfo"></div>
+      <label for="edExIn">Exploitant</label>
+      <input id="edExIn" list="explList" autocomplete="off" placeholder="Nom du groupe ou de la société">
+      <div class="row"><button type="button" id="edExDel">Retirer la saisie</button><button type="button" id="edExOk" class="primary">Valider</button></div>
+    </div>`);
+  document.head.insertAdjacentHTML("beforeend", `<style>
+    #edExpl{position:absolute;right:16px;bottom:84px;z-index:1600;display:none;width:320px;max-width:calc(100% - 32px);background:#fff;border-radius:12px;
+      box-shadow:0 8px 28px #0f172a40;padding:12px 14px;font:13px/1.4 Inter,system-ui,sans-serif;color:#18212b}
+    #edExpl .hd{display:flex;gap:8px;align-items:flex-start;justify-content:space-between}
+    #edExpl .hd b{font-size:13.5px}
+    #edExpl .hd button{border:0;background:none;font-size:20px;line-height:1;cursor:pointer;color:#5d6b7a;padding:0 2px}
+    #edExInfo{color:#5d6b7a;font-size:12px;margin:4px 0 8px}
+    #edExpl label{display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#5d6b7a;margin-bottom:4px}
+    #edExpl input{width:100%;font:inherit;font-size:14px;padding:8px 10px;border:1px solid #e2e6eb;border-radius:8px}
+    #edExpl .row{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}
+    #edExpl .row button{font:600 13px Inter,system-ui,sans-serif;border-radius:8px;padding:7px 12px;cursor:pointer;border:1px solid #e2e6eb;background:#fff;color:#18212b}
+    #edExpl .row button.primary{background:#18212b;color:#fff;border-color:#18212b}
+    #edExpl .row button:disabled{opacity:.4;cursor:default}
+  </style>`);
+  let exM = null;
+  function openExpl(m){
+    exM = m; const p = m._p;
+    $("edExNom").textContent = p.nom;
+    const src = {fichier:"saisi manuellement", sirene:"SIRENE", osm:"OpenStreetMap", wikidata:"Wikidata", nom:"déduit du nom"}[p.expl_src];
+    $("edExInfo").textContent = `${(p.mw||0).toLocaleString("fr-FR")} MW · ${p.commune || ""}` +
+      (p.expl ? ` · actuel : ${p.expl}${src ? " (" + src + ")" : ""}` : " · exploitant non identifié");
+    $("edExIn").value = p.expl_src === "fichier" ? p.expl : "";
+    $("edExIn").placeholder = p.expl && p.expl_src !== "fichier" ? p.expl : "Nom du groupe ou de la société";
+    $("edExDel").disabled = !(p.expl_src === "fichier");
+    $("edExpl").style.display = "block";
+    setTimeout(() => $("edExIn").focus(), 30);
+  }
+  function closeExpl(){ const b = $("edExpl"); if (b) b.style.display = "none"; exM = null; }
+  $("edExX").onclick = closeExpl;
+  $("edExIn").addEventListener("keydown", e => { if (e.key === "Enter") $("edExOk").click(); if (e.key === "Escape") closeExpl(); });
+  $("edExOk").onclick = () => {
+    if (!exM) return;
+    const p = exM._p, v = $("edExIn").value.trim();
+    if (!v) { $("edExIn").focus(); return; }
+    if (!p._origExpl) p._origExpl = [p.expl, p.expl_src];
+    p.expl = v; p.expl_src = "fichier";
+    pendingExpl[csvKey(p)] = v;
+    styleMoved(exM); refreshBar(); closeExpl();
+  };
+  $("edExDel").onclick = () => {
+    if (!exM) return;
+    const p = exM._p, k = csvKey(p);
+    const saved = EXPL[upk(p.eic)] || EXPL[upk(p.nom)];
+    if (saved) pendingExpl[k] = null; else delete pendingExpl[k];
+    if (p._origExpl){ [p.expl, p.expl_src] = p._origExpl; } else { p.expl = null; p.expl_src = null; }
+    styleMoved(exM); refreshBar(); closeExpl();
   };
 
   // ------------------------------------------------------------ enregistrement
@@ -238,17 +331,34 @@ const EDIT = (() => {
         editorBlob = blob;
       }
       say("Enregistrement…");
-      const cur = await gh("data/positions.json", token);
-      const remote = cur ? JSON.parse(b64utf8(cur.content) || "{}") : {};
       const today = new Date().toISOString().slice(0,10);
-      Object.entries(pending).forEach(([k, v]) => {
-        if (v === null) delete remote[k];
-        else remote[k] = {lat:v.lat, lon:v.lon, date:today, nom:v.nom, insee:v.insee};
-      });
-      const sorted = Object.fromEntries(Object.keys(remote).sort().map(k => [k, remote[k]]));
-      await putFile("data/positions.json", JSON.stringify(sorted, null, 1) + "\n", cur && cur.sha, token,
-        `Positions : ${n()} correction(s) via l'éditeur web`);
-      POS = sorted; pending = {};
+      const nPos = Object.keys(pending).length, nEx = Object.keys(pendingExpl).length;
+      if (nPos){
+        const cur = await gh("data/positions.json", token);
+        const remote = cur ? JSON.parse(b64utf8(cur.content) || "{}") : {};
+        Object.entries(pending).forEach(([k, v]) => {
+          if (v === null) delete remote[k];
+          else remote[k] = {lat:v.lat, lon:v.lon, date:today, nom:v.nom, insee:v.insee};
+        });
+        const sorted = Object.fromEntries(Object.keys(remote).sort().map(k => [k, remote[k]]));
+        await putFile("data/positions.json", JSON.stringify(sorted, null, 1) + "\n", cur && cur.sha, token,
+          `Positions : ${nPos} correction(s) via l'éditeur web`);
+        POS = sorted; pending = {};
+      }
+      if (nEx){
+        const cur = await gh("data/exploitants.csv", token);
+        const lines = (cur ? b64utf8(cur.content) : "cle;exploitant\n").replace(/\r/g, "").split("\n");
+        while (lines.length && lines[lines.length - 1] === "") lines.pop();
+        const todo = Object.fromEntries(Object.entries(pendingExpl).map(([k, v]) => [upk(k), [k, v]]));
+        const kept = lines.filter(l => {
+          const i = l.indexOf(";");
+          return i < 1 || l.startsWith("#") || !(upk(l.slice(0, i)) in todo);
+        });
+        Object.values(todo).forEach(([k, v]) => { if (v !== null) kept.push(`${k.replace(/;/g, ",")};${v.replace(/;/g, ",")}`); });
+        await putFile("data/exploitants.csv", kept.join("\n") + "\n", cur && cur.sha, token,
+          `Exploitants : ${nEx} saisie(s) via l'éditeur web`);
+        EXPL = parseCsv(kept.join("\n")); pendingExpl = {};
+      }
       markers.forEach(styleMoved); refreshBar();
       say("Enregistré. Visible par tous après le redéploiement GitHub Pages (≈ 1 min).", "ok");
       setTimeout(() => { $("edModal").style.display = "none"; }, 2200);

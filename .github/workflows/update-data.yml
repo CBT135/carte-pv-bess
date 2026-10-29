@@ -8,7 +8,7 @@ on:
     branches: [main]
     paths:
       - "scripts/**"
-      - "data/exploitants.csv"
+      - "data/groupes.csv"
       - ".github/workflows/update-data.yml"
 
 permissions:
@@ -21,7 +21,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 50
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

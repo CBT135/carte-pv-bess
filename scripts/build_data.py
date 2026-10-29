@@ -27,6 +27,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import osm_match  # noqa: E402
 import sirene_match  # noqa: E402
+import wikidata  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "data"
@@ -141,6 +142,8 @@ def load_communes(path=None):
             except Exception as e:
                 print(f"  geo.api.gouv.fr : {u} indisponible ({e})", file=sys.stderr)
     out = {}
+    COMMUNES_HOMONYMES.update(k for k, v in Counter(norm(c.get("nom", "")) for c in items
+                                                    if c.get("code", "")[:2] != "75").items() if v > 1)
     for c in items:
         ctr = (c.get("centre") or {}).get("coordinates")
         if c.get("code") and ctr:
@@ -231,9 +234,39 @@ def load_overrides():
     return exact, regex
 
 
+GROUPES = ({}, [])
+COMMUNES_HOMONYMES = set()  # noms de communes portés par plusieurs communes (ambigus pour la recherche par nom)  # data/groupes.csv : holding / société → groupe (prioritaire)
+
+
+def load_groupes():
+    """data/groupes.csv : cle;groupe — cle = nom exact d'une société / holding, ou re:<regex>."""
+    f = DATA / "groupes.csv"
+    exact, regex = {}, []
+    if f.exists():
+        with f.open(encoding="utf-8-sig") as fh:
+            for r in csv.reader(fh, delimiter=";"):
+                if len(r) < 2 or not r[0].strip() or not r[1].strip() or r[0].startswith("#") \
+                        or r[0].strip().lower() == "cle":
+                    continue
+                k, v = r[0].strip(), r[1].strip()
+                if k.lower().startswith("re:"):
+                    regex.append((re.compile(k[3:], re.I), v))
+                else:
+                    exact[up(k)] = v
+    return exact, regex
+
+
 def canon(op):
-    """Ramène un libellé d'opérateur (ex. tag OSM) à un groupe connu, sinon None."""
+    """Ramène un libellé d'opérateur ou de holding à un groupe connu, sinon None."""
+    if not op:
+        return None
     n = up(op)
+    exact, regex = GROUPES
+    if n in exact:
+        return exact[n]
+    for rx, v in regex:
+        if rx.search(n):
+            return v
     for rx, v in OPERATEURS:
         if rx.search(n):
             return v
@@ -253,6 +286,21 @@ def exploitant(eic, nom, overrides):
         if rx.search(n):
             return v, "nom"
     return None, None
+
+
+def write_holdings_a_classer(pts):
+    """Liste des exploitants affichés qui ne sont rattachés à aucun groupe connu, classés par MW,
+    au format de data/groupes.csv (colonne groupe à remplir)."""
+    agg = defaultdict(lambda: [0.0, 0])
+    for p in pts:
+        if p["expl"] and p["expl_src"] in ("sirene", "osm", "wikidata") and not canon(p["expl"]):
+            agg[p["expl"]][0] += p["mw"]
+            agg[p["expl"]][1] += 1
+    with (DATA / "holdings_a_classer.csv").open("w", encoding="utf-8-sig", newline="") as fh:
+        w = csv.writer(fh, delimiter=";")
+        w.writerow(["cle", "groupe", "mw", "nb_installations"])
+        for k, (mw, nb) in sorted(agg.items(), key=lambda x: -x[1][0]):
+            w.writerow([k, "", str(round(mw, 1)).replace(".", ","), nb])
 
 
 # --------------------------------------------------------------------------- traitement
@@ -304,6 +352,8 @@ def main():
     rows, source = load_registre(a.registre)
     centres = load_communes(a.communes)
     overrides = load_overrides()
+    global GROUPES
+    GROUPES = load_groupes()
     today = dt.date.today().isoformat()
 
     excl = Counter()
@@ -377,7 +427,7 @@ def main():
         rec["lat"], rec["lon"] = c
         rec["loc_src"] = "commune"
         rec["osm"] = None
-        rec["siren"] = rec["societe"] = None
+        rec["siren"] = rec["societe"] = rec["chaine"] = rec["wikidata"] = None
         pts.append(rec)
 
     osm_stats = {}
@@ -389,22 +439,42 @@ def main():
     sirene_stats = {}
     if not a.no_sirene:
         print("SIRENE : établissements de production d'électricité (NAF 35.11Z)…", file=sys.stderr)
+        national = []
         try:
-            by_c, mode = sirene_match.load_stock(Path(a.tmp)), "stock Parquet"
+            by_c, national = sirene_match.load_stock(Path(a.tmp))
+            mode = "stock Parquet"
         except Exception as e:
             print(f"  stock SIRENE indisponible ({e}) : repli sur l'API par commune", file=sys.stderr)
             by_c, _ = sirene_match.fetch_all({p["insee"] for p in pts}, DATA / "sirene_cache.json")
             mode = "API"
         sirene_match.match(pts, by_c, canon)
+        n_nat = sirene_match.national_match(pts, national, canon, COMMUNES_HOMONYMES, norm) if national else 0
         n_h = sirene_match.enrich_holdings(pts, DATA / "sirene_dirigeants.json", canon)
         sirene_stats = {"mode": mode, "societes_rattachees": sum(1 for p in pts if p["siren"]),
-                        "exploitants": sum(1 for p in pts if p["expl_src"] == "sirene"), "holdings": n_h}
+                        "national": n_nat, "exploitants": sum(1 for p in pts if p["expl_src"] == "sirene"),
+                        "holdings": n_h}
         print(f"  SIRENE : {sirene_stats}", file=sys.stderr)
+
+    wd_stats = {}
+    if not a.no_osm:
+        wd, wd_src = wikidata.fetch(DATA / "wikidata_plants.json")
+        reste = [p for p in pts if not p["expl"]]
+        n_loc, n_expl = osm_match.match(reste, wd, canon, src="wikidata")
+        wd_stats = {"source": wd_src, "objets": len(wd), "exploitants": n_expl, "localisees": n_loc}
+        print(f"  Wikidata : {wd_stats}", file=sys.stderr)
+
+    # dernière passe : regroupement des libellés sur les groupes connus (data/groupes.csv compris)
+    for p in pts:
+        if p["expl"] and p["expl_src"] != "fichier":
+            g = canon(p["expl"])
+            if g:
+                p["expl"] = g
+    write_holdings_a_classer(pts)
     jitter([p for p in pts if p["loc_src"] == "commune"])
     pts.sort(key=lambda p: -p["mw"])
 
     fields = ["nom", "type", "techno", "mw", "mw_charge", "mes", "mes_src", "expl", "expl_src",
-              "commune", "insee", "dep", "region", "grd", "tension", "poste", "eic", "lat", "lon", "loc_src", "osm", "siren", "societe"]
+              "commune", "insee", "dep", "region", "grd", "tension", "poste", "eic", "lat", "lon", "loc_src", "osm", "siren", "societe", "chaine", "wikidata"]
     out = {
         "meta": {
             "source": source,
@@ -417,6 +487,7 @@ def main():
             "sans_coordonnees": len(sans_coord),
             "osm": osm_stats,
             "sirene": sirene_stats,
+            "wikidata": wd_stats,
             "exploitant_identifie_mw": round(sum(p["mw"] for p in pts if p["expl"]), 1),
             "localisation": "centroïde de la commune du point de livraison (le registre ne publie pas de coordonnées)",
         },
