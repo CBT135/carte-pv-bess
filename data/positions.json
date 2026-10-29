@@ -76,6 +76,13 @@
   "nom": "Confidentiel",
   "insee": "16113"
  },
+ "17W000000476675G": {
+  "lat": 48.162122,
+  "lon": 4.49343,
+  "date": "2026-10-29",
+  "nom": "BORALEX STOCKAGE",
+  "insee": "10097"
+ },
  "17W000000490679Q": {
   "lat": 44.058731,
   "lon": 6.00008,
@@ -292,5 +299,12 @@
   "date": "2026-10-28",
   "nom": "VOLX",
   "insee": "04245"
+ },
+ "17W000002477319H": {
+  "lat": 48.240711,
+  "lon": 1.472254,
+  "date": "2026-10-29",
+  "nom": "B.PAIV02 - ADP 02 DE LA CENTRALE SOLAIRE PHOTOVOLTAIQUE DE BOIS PAILLET (PRASVILLE)",
+  "insee": "28422"
  }
 }
