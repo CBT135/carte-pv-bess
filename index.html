@@ -2,7 +2,15 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#18212b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="PV & BESS">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icon-180.png">
 <title>Carte PV & BESS France</title>
 <meta name="description" content="Installations photovoltaïques et de stockage par batteries de plus de 1 MW en service en France (Registre national ODRÉ).">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
@@ -69,16 +77,74 @@ select:focus,input:focus{outline:2px solid #18212b22;border-color:#9aa6b2}
 .inst td:first-child{color:var(--muted);padding-right:10px;white-space:nowrap}
 .inst .note{font-size:11px;color:var(--muted);margin-top:6px}
 #toggle{display:none}
+.picker{width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;font:inherit;font-size:14px;padding:8px 10px;
+  border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);cursor:pointer;text-align:left}
+.picker span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.picker i{font-style:normal;color:var(--muted)}
+.picker.on{border-color:#18212b;box-shadow:inset 0 0 0 1px #18212b}
+#explSheet{position:fixed;inset:0;z-index:3000;background:#0f172a55;display:none;align-items:center;justify-content:center;padding:16px}
+#explSheet.open{display:flex}
+#explSheet .sheet{background:#fff;border-radius:14px;width:100%;max-width:440px;height:min(640px,100%);display:flex;flex-direction:column;
+  box-shadow:0 12px 40px #0f172a40;overflow:hidden}
+.sh-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 8px}
+.sh-head b{font-size:16px}
+button.x{border:0;background:none;font-size:26px;line-height:1;cursor:pointer;color:var(--muted);padding:2px 6px}
+#explQ{margin:0 16px;width:calc(100% - 32px);font-size:16px}
+.sh-tools{display:flex;justify-content:space-between;align-items:center;padding:8px 16px;font-size:12px;color:var(--muted)}
+.sh-tools button{font:inherit;font-size:12px;border:0;background:none;color:var(--muted);text-decoration:underline;cursor:pointer;padding:0}
+.sh-list{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;border-top:1px solid var(--line);overscroll-behavior:contain}
+.sh-list label{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid #f0f2f5;font-size:14px;cursor:pointer;min-height:44px}
+.sh-list label input{width:18px;height:18px;flex:0 0 18px;accent-color:#18212b;margin:0}
+.sh-list label span{flex:1;min-width:0;overflow-wrap:anywhere}
+.sh-list label small{color:var(--muted);font-size:12px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.sh-list .letter{position:sticky;top:0;background:#f6f7f9;font-size:11px;font-weight:700;color:var(--muted);padding:3px 16px;letter-spacing:.06em}
+.sh-list .none{padding:24px 16px;color:var(--muted);font-size:14px}
+.sh-foot{padding:10px 16px calc(10px + env(safe-area-inset-bottom));border-top:1px solid var(--line)}
+.sh-foot button{width:100%;font:inherit;font-size:15px;font-weight:600;border-radius:10px;padding:12px;border:0;background:#18212b;color:#fff;cursor:pointer}
+#card{position:fixed;left:8px;right:8px;bottom:calc(8px + env(safe-area-inset-bottom));z-index:2500;display:none;background:#fff;border-radius:14px;
+  box-shadow:0 10px 36px #0f172a4d;padding:14px 16px 12px;max-height:62dvh;overflow-y:auto;font:14px/1.4 Inter,system-ui,sans-serif;max-width:480px;margin:0 auto}
+#card.open{display:block}
+#card .x{position:absolute;top:6px;right:6px}
+#card .inst h3{font-size:15px;padding-right:28px}
+#card .inst td{font-size:13.5px;padding:3px 0}
+.card-act{display:flex;gap:8px;margin-top:10px}
+.card-act a{flex:1;text-align:center;font-size:14px;font-weight:600;padding:10px;border-radius:10px;border:1px solid var(--line);color:var(--ink);text-decoration:none}
+.card-act a:first-child{background:#18212b;color:#fff;border-color:#18212b}
+.loc-btn{width:34px;height:34px;display:flex;align-items:center;justify-content:center;background:#fff;border:0;cursor:pointer;font-size:18px;color:#18212b}
+.loc-dot{width:14px;height:14px;border-radius:50%;background:#1a73e8;border:3px solid #fff;box-shadow:0 0 0 1px #1a73e855,0 2px 6px #0004}
 #empty{position:absolute;inset:0;display:none;align-items:center;justify-content:center;z-index:2000;background:#f6f7f9ee;padding:24px;text-align:center}
 #empty div{max-width:440px;font-size:14px;line-height:1.5}
 @media (max-width:760px){
-  #app{flex-direction:column}
-  aside{position:fixed;left:0;right:0;bottom:0;width:auto;max-height:78vh;border-right:0;border-top:1px solid var(--line);
-    border-radius:14px 14px 0 0;transform:translateY(calc(100% - 178px));transition:transform .25s;box-shadow:0 -6px 24px #0f172a22}
+  html,body{height:100dvh;overflow:hidden}
+  #app{flex-direction:column;height:100dvh}
+  #map{height:100dvh}
+  aside{position:fixed;left:0;right:0;bottom:0;width:auto;max-height:86dvh;border-right:0;border-top:1px solid var(--line);
+    border-radius:16px 16px 0 0;transform:translateY(calc(100% - var(--peek, 150px)));transition:transform .28s cubic-bezier(.2,.8,.2,1);
+    box-shadow:0 -6px 24px #0f172a22;overflow-y:auto;z-index:1200;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;
+    padding-bottom:env(safe-area-inset-bottom)}
   aside.open{transform:none}
-  #toggle{display:block;width:44px;height:5px;border-radius:3px;background:#c6cdd5;margin:8px auto 0;border:0;padding:0;cursor:pointer}
-  .head{padding-top:8px}
-  #map{height:100%}
+  aside.dragging{transition:none}
+  form{overflow:visible;flex:none}
+  #toggle{display:block;width:100%;height:22px;background:none;border:0;padding:0;cursor:grab;position:sticky;top:0;z-index:2}
+  #toggle::before{content:"";display:block;width:44px;height:5px;border-radius:3px;background:#c6cdd5;margin:9px auto 0}
+  .head{padding:0 16px 8px;cursor:pointer}
+  .head h1{font-size:15px}
+  .head p{font-size:11.5px}
+  .stats{padding:8px 16px 10px;gap:6px}
+  .stat{padding:6px 8px}
+  .stat b{font-size:15px}
+  form{padding:12px 16px 16px}
+  select,input[type=search],input[type=number],.picker{font-size:16px;padding:10px 12px}
+  .tbtn{padding:10px 12px;font-size:15px}
+  .sizes-f label{padding:8px 12px;font-size:14px}
+  .actions button{padding:12px;font-size:15px}
+  #explSheet{padding:0;align-items:flex-end}
+  #explSheet .sheet{max-width:none;height:92dvh;border-radius:16px 16px 0 0}
+  .leaflet-control-layers{font-size:13px}
+  .leaflet-top{top:env(safe-area-inset-top)}
+  .leaflet-bottom{bottom:var(--peek, 150px)}
+  .leaflet-control-attribution{font-size:10px}
+  #edToggle,#edBar{display:none!important}
 }
 </style>
 </head>
@@ -108,8 +174,8 @@ select:focus,input:focus{outline:2px solid #18212b22;border-color:#9aa6b2}
         <select id="region"><option value="">Toutes les régions</option></select>
       </fieldset>
       <fieldset>
-        <label class="lbl" for="expl">Exploitant</label>
-        <input type="search" id="expl" list="explList" placeholder="Tous (tapez pour filtrer)">
+        <label class="lbl" for="explBtn">Exploitant</label>
+        <button type="button" id="explBtn" class="picker" aria-haspopup="dialog"><span id="explTxt">Tous les exploitants</span><i>▾</i></button>
         <datalist id="explList"></datalist>
       </fieldset>
       <fieldset>
@@ -147,6 +213,25 @@ select:focus,input:focus{outline:2px solid #18212b22;border-color:#9aa6b2}
 </div>
 <div id="empty"><div id="emptyMsg"></div></div>
 
+<div id="explSheet" role="dialog" aria-modal="true" aria-labelledby="explTitle">
+  <div class="sheet">
+    <div class="sh-head">
+      <b id="explTitle">Exploitants</b>
+      <button type="button" class="x" id="explClose" aria-label="Fermer">×</button>
+    </div>
+    <input type="search" id="explQ" placeholder="Rechercher un exploitant…" autocomplete="off" enterkeyhint="search">
+    <div class="sh-tools"><span id="explCount"></span><button type="button" id="explClear">Tout désélectionner</button></div>
+    <div id="explItems" class="sh-list"></div>
+    <div class="sh-foot"><button type="button" class="primary" id="explOk">Afficher</button></div>
+  </div>
+</div>
+
+<div id="card" role="dialog" aria-label="Détail de l'installation">
+  <button type="button" class="x" id="cardClose" aria-label="Fermer">×</button>
+  <div id="cardBody" class="inst"></div>
+  <div class="card-act"><a id="cardNav" target="_blank" rel="noopener">Itinéraire</a><a id="cardMap" target="_blank" rel="noopener">Géoportail</a></div>
+</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
 "use strict";
@@ -160,7 +245,9 @@ const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;
 const norm = s => String(s||"").normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase();
 
 // ---------------------------------------------------------------- carte
-const map = L.map("map",{preferCanvas:true, zoomSnap:.5, minZoom:4}).setView([46.6,2.4],6);
+const NARROW = matchMedia("(max-width:760px)").matches;
+const HOVER = matchMedia("(hover:hover) and (pointer:fine)").matches;
+const map = L.map("map",{preferCanvas:true, zoomSnap:.5, minZoom:4, tap:false}).setView(NARROW ? [46.4,2.4] : [46.6,2.4], NARROW ? 5 : 6);
 const ATTR_ODRE = ' · Données <a href="https://odre.opendatasoft.com/">ODRÉ</a>, <a href="https://www.openstreetmap.org/copyright">OSM</a>';
 const ign = layer => `https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=${layer}&STYLE=normal&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&FORMAT=`;
 const FONDS = {
@@ -177,13 +264,30 @@ if (!FONDS[fond]) { try { fond = localStorage.getItem("fond"); } catch(e) {} }
 if (!FONDS[fond]) fond = "ign";
 FONDS[fond].addTo(map);
 L.control.layers(Object.fromEntries(Object.entries(FONDS).map(([k,v]) => [FOND_LABELS[k], v])), null,
-  {position:"topright", collapsed:false}).addTo(map);
+  {position:"topright", collapsed:NARROW || !HOVER}).addTo(map);
+
+// bouton « ma position »
+const locLayer = L.layerGroup().addTo(map);
+const LocCtl = L.Control.extend({options:{position:"topleft"}, onAdd(){
+  const d = L.DomUtil.create("div","leaflet-bar");
+  const b = L.DomUtil.create("button","loc-btn",d);
+  b.type = "button"; b.title = "Ma position"; b.setAttribute("aria-label","Centrer sur ma position"); b.textContent = "◎";
+  L.DomEvent.disableClickPropagation(d);
+  b.onclick = () => map.locate({setView:true, maxZoom:12, enableHighAccuracy:true});
+  return d; }});
+new LocCtl().addTo(map);
+map.on("locationfound", e => {
+  locLayer.clearLayers();
+  L.circle(e.latlng, {radius:e.accuracy, color:"#1a73e8", weight:1, fillOpacity:.08, interactive:false}).addTo(locLayer);
+  L.marker(e.latlng, {icon:L.divIcon({className:"", html:'<div class="loc-dot"></div>', iconSize:[14,14]}), interactive:false}).addTo(locLayer);
+});
+map.on("locationerror", () => alert("Position indisponible : autorisez la localisation pour ce site dans les réglages du navigateur."));
 map.on("baselayerchange", e => {
   fond = Object.keys(FONDS).find(k => FONDS[k] === e.layer) || "ign";
   try { localStorage.setItem("fond", fond); } catch(err) {}
   if (DATA.length) apply(false);
 });
-const renderer = L.canvas({padding:.3, tolerance:3});
+const renderer = L.canvas({padding:.3, tolerance: HOVER ? 3 : 10});
 const layer = L.layerGroup().addTo(map);
 
 // rayon : √P, plafonné, légèrement agrandi avec le zoom
@@ -225,14 +329,37 @@ function build(){
     const c = COLORS[p.type];
     const m = L.circleMarker([p.lat,p.lon],{renderer, radius:baseR(p.mw)*zoomK(),
       color:"#ffffff", weight:.8, fillColor:c.fill, fillOpacity:.72, opacity:.9});
-    m.bindTooltip(() => tooltipHtml(p), {className:"inst", direction:"top", offset:[0,-4], sticky:false});
-    m.on("mouseover", () => m.setStyle({color:c.stroke, weight:2}));
-    m.on("mouseout",  () => m.setStyle({color:"#ffffff", weight:.8}));
-    m.on("click", () => m.openTooltip());
+    if (HOVER && !NARROW){
+      m.bindTooltip(() => tooltipHtml(p), {className:"inst", direction:"top", offset:[0,-4], sticky:false});
+      m.on("mouseover", () => m.setStyle({color:c.stroke, weight:2}));
+      m.on("mouseout",  () => m.setStyle({color:"#ffffff", weight:.8}));
+      m.on("click", () => m.openTooltip());
+    } else {
+      m.on("click", e => { L.DomEvent.stop(e); showCard(m); });
+    }
     m._p = p;
     return m;
   });
 }
+// fiche détaillée (téléphone / tablette)
+let cardM = null;
+function showCard(m){
+  if (cardM && cardM !== m) cardM.setStyle({color:"#ffffff", weight:.8});
+  cardM = m; const p = m._p;
+  m.setStyle({color:"#18212b", weight:3}); m.bringToFront();
+  $("cardBody").innerHTML = tooltipHtml(p);
+  $("cardNav").href = `https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lon}`;
+  $("cardMap").href = `https://www.geoportail.gouv.fr/carte?c=${p.lon},${p.lat}&z=16&l0=ORTHOIMAGERY.ORTHOPHOTOS::GEOPORTAIL:OGC:WMTS(1)&permalink=yes`;
+  $("panel").classList.remove("open");
+  $("card").classList.add("open"); $("card").scrollTop = 0;
+}
+function hideCard(){
+  $("card").classList.remove("open");
+  if (cardM){ cardM.setStyle({color:"#ffffff", weight:.8}); cardM = null; }
+}
+$("cardClose").onclick = hideCard;
+map.on("click", hideCard);
+
 map.on("zoomend", () => { const k = zoomK(); markers.forEach(m => m.setRadius(baseR(m._p.mw)*k)); drawSizes(); });
 
 // ---------------------------------------------------------------- filtres
@@ -240,28 +367,25 @@ const SIZES = [{lo:0,hi:5,l:"1–5 MW"},{lo:5,hi:12,l:"5–12 MW"},{lo:12,hi:30,
                {lo:30,hi:100,l:"30–100 MW"},{lo:100,hi:Infinity,l:"≥ 100 MW"}];
 const ALL_S = SIZES.map((_,i)=>String(i));
 const sizeOf = mw => SIZES.findIndex(c => mw >= c.lo && mw < c.hi);
-const F = {t:["PV","BESS"], s:[...ALL_S], r:"", e:"", pmin:"", pmax:"", y1:"", y2:"", q:""};
+const F = {t:["PV","BESS"], s:[...ALL_S], r:"", e:[], pmin:"", pmax:"", y1:"", y2:"", q:""};
 
 function readForm(){
   F.t = [...document.querySelectorAll('input[name=t]:checked')].map(i=>i.value);
   F.s = [...document.querySelectorAll('input[name=s]:checked')].map(i=>i.value);
-  F.r = $("region").value; F.e = $("expl").value.trim();
+  F.r = $("region").value;
   F.pmin = $("pmin").value; F.pmax = $("pmax").value;
   F.y1 = $("y1").value; F.y2 = $("y2").value; F.q = $("q").value.trim();
 }
 function writeForm(){
   document.querySelectorAll('input[name=t]').forEach(i => i.checked = F.t.includes(i.value));
   document.querySelectorAll('input[name=s]').forEach(i => i.checked = F.s.includes(i.value));
-  $("region").value = F.r; $("expl").value = F.e; $("pmin").value = F.pmin; $("pmax").value = F.pmax;
+  $("region").value = F.r; explLabel(); $("pmin").value = F.pmin; $("pmax").value = F.pmax;
   $("y1").value = F.y1; $("y2").value = F.y2; $("q").value = F.q;
 }
 function test(p){
   if (!F.t.includes(p.type)) return false;
   if (F.r && p.region !== F.r) return false;
-  if (F.e){
-    if (F.e === NO_EXPL){ if (p.expl) return false; }
-    else if (!norm(p.expl).includes(norm(F.e))) return false;
-  }
+  if (F.e.length && !ESEL.has(p.expl || NO_EXPL)) return false;
   if (F.s.length < SIZES.length && !F.s.includes(String(sizeOf(p.mw)))) return false;
   if (F.pmin !== "" && p.mw < +F.pmin) return false;
   if (F.pmax !== "" && p.mw > +F.pmax) return false;
@@ -273,8 +397,10 @@ function test(p){
   return true;
 }
 let shown = [];
+let ESEL = new Set();
 function apply(fit){
   readForm();
+  ESEL = new Set(F.e);
   layer.clearLayers();
   shown = markers.filter(m => test(m._p));
   // les plus gros d'abord : les petits restent visibles et survolables par-dessus
@@ -285,13 +411,13 @@ function apply(fit){
   $("sPV").textContent = fmt(pv,0);
   $("sBESS").textContent = fmt(be,0);
   const h = new URLSearchParams();
-  Object.entries(F).forEach(([k,v]) => { const s = Array.isArray(v) ? v.join(",") : v;
+  Object.entries(F).forEach(([k,v]) => { const s = Array.isArray(v) ? v.join(k === "e" ? "|" : ",") : v;
     if (s !== "" && !(k==="t" && s==="PV,BESS") && !(k==="s" && s===ALL_S.join(","))) h.set(k,s); });
   if (F.t.length === 0) h.set("t","-");
   if (F.s.length === 0) h.set("s","-");
   if (fond !== "ign") h.set("fond", fond);
   history.replaceState(null, "", h.toString() ? "#"+h.toString() : location.pathname + location.search);
-  if (fit && shown.length && (F.r || F.e || F.q)){
+  if (fit && shown.length && (F.r || F.e.length || F.q)){
     map.fitBounds(L.latLngBounds(shown.map(m=>m.getLatLng())).pad(.08), {maxZoom:11});
   }
 }
@@ -299,7 +425,8 @@ function readHash(){
   const h = new URLSearchParams(location.hash.slice(1));
   for (const k of Object.keys(F)){
     if (!h.has(k)) continue;
-    F[k] = (k === "t" || k === "s") ? (h.get(k) === "-" ? [] : h.get(k).split(",")) : h.get(k);
+    F[k] = (k === "t" || k === "s") ? (h.get(k) === "-" ? [] : h.get(k).split(","))
+         : k === "e" ? h.get(k).split("|").filter(Boolean) : h.get(k);
   }
 }
 
@@ -312,11 +439,52 @@ function fillLists(){
   $("sizesF").innerHTML = SIZES.map((c,i) =>
     `<label><input type="checkbox" name="s" value="${i}" checked>${c.l} <small>${sc[i]}</small></label>`).join("");
   const ex = {};
-  DATA.forEach(p => { const k = p.expl || NO_EXPL; ex[k] = (ex[k]||0) + p.mw; });
-  $("explList").innerHTML = Object.entries(ex)
+  DATA.forEach(p => { const k = p.expl || NO_EXPL; ex[k] = ex[k] || [0,0]; ex[k][0] += p.mw; ex[k][1]++; });
+  EXPLS = Object.entries(ex)
     .sort((a,b) => (b[0]===NO_EXPL) - (a[0]===NO_EXPL) || a[0].localeCompare(b[0],"fr",{sensitivity:"base", numeric:true}))
-    .map(([k,v]) => `<option value="${esc(k)}">${fmt(v,0)} MW</option>`).join("");
+    .map(([k,v]) => ({k, mw:v[0], n:v[1], s:norm(k)}));
+  $("explList").innerHTML = EXPLS.filter(e => e.k !== NO_EXPL)
+    .map(e => `<option value="${esc(e.k)}">${fmt(e.mw,0)} MW</option>`).join("");
 }
+
+// ---------------------------------------------------------------- sélecteur d'exploitants
+let EXPLS = [], draft = new Set();
+function explLabel(){
+  const n = F.e.length;
+  $("explTxt").textContent = !n ? "Tous les exploitants" : n === 1 ? F.e[0] : `${n} exploitants sélectionnés`;
+  $("explBtn").classList.toggle("on", n > 0);
+}
+function renderExpl(){
+  const q = norm($("explQ").value.trim());
+  const list = q ? EXPLS.filter(e => e.s.includes(q)) : EXPLS;
+  let html = "", letter = "";
+  list.forEach(e => {
+    const L0 = e.k === NO_EXPL ? "★" : (norm(e.k)[0] || "#").toUpperCase().replace(/[^A-Z]/, "#");
+    if (!q && L0 !== letter){ letter = L0; html += `<div class="letter">${L0 === "★" ? "—" : L0}</div>`; }
+    html += `<label><input type="checkbox" value="${esc(e.k)}"${draft.has(e.k) ? " checked" : ""}>`
+          + `<span>${esc(e.k)}</span><small>${fmt(e.mw,0)} MW · ${e.n}</small></label>`;
+  });
+  $("explItems").innerHTML = html || `<div class="none">Aucun exploitant ne correspond.</div>`;
+  $("explCount").textContent = draft.size ? `${draft.size} sélectionné(s)` : `${EXPLS.length} exploitants`;
+}
+function openExplSheet(){
+  draft = new Set(F.e); $("explQ").value = ""; renderExpl();
+  $("explSheet").classList.add("open"); $("explItems").scrollTop = 0;
+  if (HOVER) setTimeout(() => $("explQ").focus(), 30);
+}
+function closeExplSheet(applyIt){
+  $("explSheet").classList.remove("open");
+  if (applyIt){ F.e = [...draft].sort((a,b) => a.localeCompare(b,"fr")); explLabel(); apply(true); }
+}
+$("explBtn").onclick = openExplSheet;
+$("explQ").addEventListener("input", renderExpl);
+$("explItems").addEventListener("change", e => { const v = e.target.value; e.target.checked ? draft.add(v) : draft.delete(v);
+  $("explCount").textContent = draft.size ? `${draft.size} sélectionné(s)` : `${EXPLS.length} exploitants`; });
+$("explClear").onclick = () => { draft.clear(); renderExpl(); };
+$("explOk").onclick = () => closeExplSheet(true);
+$("explClose").onclick = () => closeExplSheet(false);
+$("explSheet").addEventListener("click", e => { if (e.target.id === "explSheet") closeExplSheet(false); });
+document.addEventListener("keydown", e => { if (e.key === "Escape"){ closeExplSheet(false); hideCard(); } });
 
 function exportCsv(){
   const cols = ["nom","type","techno","mw","mw_charge","mes","mes_src","expl","expl_src","commune","insee","dep","region","grd","tension","poste","eic","siren","societe","loc_src","lat","lon"];
@@ -332,14 +500,42 @@ function exportCsv(){
 // ---------------------------------------------------------------- évènements
 let deb;
 $("f").addEventListener("input", e => { clearTimeout(deb);
-  deb = setTimeout(() => apply(["region","expl"].includes(e.target.id)), e.target.type==="search" ? 250 : 0); });
-$("f").addEventListener("change", e => { if (e.target.id === "region" || e.target.id === "expl") apply(true); });
+  deb = setTimeout(() => apply(e.target.id === "region"), e.target.type==="search" ? 250 : 0); });
 $("sAll").onclick = () => { document.querySelectorAll('input[name=s]').forEach(i => i.checked = true); apply(false); };
 $("sNone").onclick = () => { document.querySelectorAll('input[name=s]').forEach(i => i.checked = false); apply(false); };
-$("reset").onclick = () => { Object.assign(F,{t:["PV","BESS"],s:[...ALL_S],r:"",e:"",pmin:"",pmax:"",y1:"",y2:"",q:""});
-  writeForm(); apply(false); map.setView([46.6,2.4],6); };
+$("reset").onclick = () => { Object.assign(F,{t:["PV","BESS"],s:[...ALL_S],r:"",e:[],pmin:"",pmax:"",y1:"",y2:"",q:""});
+  writeForm(); apply(false); map.setView(NARROW ? [46.4,2.4] : [46.6,2.4], NARROW ? 5 : 6); };
 $("csv").onclick = exportCsv;
-$("toggle").onclick = document.querySelector(".head").onclick = () => $("panel").classList.toggle("open");
+$("toggle").onclick = document.querySelector(".head").onclick = () => { hideCard(); $("panel").classList.toggle("open"); };
+// panneau du bas (téléphone) : hauteur visible = poignée + titre + chiffres clés ; glisser vers le haut / le bas
+function setPeek(){
+  if (!NARROW) return;
+  const st = document.querySelector(".stats");
+  const v = (st.offsetTop + st.offsetHeight + 2) + "px";
+  $("panel").style.setProperty("--peek", v); document.documentElement.style.setProperty("--peek", v);
+}
+(() => {
+  const pnl = $("panel"); let y0 = null, dy = 0, startOpen = false;
+  const zone = e => e.target.closest("#toggle, .head, .stats");
+  pnl.addEventListener("touchstart", e => {
+    if (!NARROW || !zone(e) || (pnl.classList.contains("open") && pnl.scrollTop > 0)) return;
+    y0 = e.touches[0].clientY; dy = 0; startOpen = pnl.classList.contains("open"); pnl.classList.add("dragging");
+  }, {passive:true});
+  pnl.addEventListener("touchmove", e => {
+    if (y0 === null) return;
+    dy = e.touches[0].clientY - y0;
+    const h = pnl.offsetHeight, peek = parseFloat(getComputedStyle(pnl).getPropertyValue("--peek")) || 150;
+    const base = startOpen ? 0 : h - peek;
+    pnl.style.transform = `translateY(${Math.max(0, Math.min(h - peek, base + dy))}px)`;
+  }, {passive:true});
+  pnl.addEventListener("touchend", () => {
+    if (y0 === null) return;
+    pnl.classList.remove("dragging"); pnl.style.transform = "";
+    if (Math.abs(dy) > 40){ pnl.classList.toggle("open", dy < 0); if (dy < 0) hideCard(); }
+    y0 = null;
+  });
+})();
+addEventListener("resize", setPeek);
 
 // ---------------------------------------------------------------- chargement
 fetch("data/installations.json", {cache:"no-cache"})
@@ -355,7 +551,7 @@ fetch("data/installations.json", {cache:"no-cache"})
       + `L'exploitant n'est pas publié au registre : il provient, par ordre de priorité, de <code>data/exploitants.csv</code>, de la base SIRENE (société de projet et chaîne d'actionnaires), des lauréats des appels d'offres CRE, d'OpenStreetMap, de Wikidata, ou du nom de l'installation.`
       + (META.osm && META.osm.localisees ? ` ${fmt(META.osm.localisees,0)} installations positionnées sur leur emprise OpenStreetMap, les autres au centroïde de la commune.` : "")
       + (META.sans_coordonnees ? ` ${META.sans_coordonnees} installation(s) non géolocalisée(s).` : "");
-    fillLists(); build(); EDIT.attach(markers); drawSizes(); readHash(); writeForm(); apply(true);
+    fillLists(); build(); EDIT.attach(markers); drawSizes(); readHash(); writeForm(); apply(true); setPeek();
   })
   .catch(err => {
     $("emptyMsg").innerHTML = `<b>Données absentes.</b><br>Le fichier <code>data/installations.json</code> n'a pas encore été généré. `
