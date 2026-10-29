@@ -135,7 +135,16 @@ button.x{border:0;background:none;font-size:26px;line-height:1;cursor:pointer;co
 .card-act a{flex:1;text-align:center;font-size:14px;font-weight:600;padding:10px;border-radius:10px;border:1px solid var(--line);color:var(--ink);text-decoration:none}
 .card-act a:first-child{background:#18212b;color:#fff;border-color:#18212b}
 .loc-btn{width:34px;height:34px;display:flex;align-items:center;justify-content:center;background:#fff;border:0;cursor:pointer;font-size:18px;color:#18212b}
-.loc-dot{width:14px;height:14px;border-radius:50%;background:#1a73e8;border:3px solid #fff;box-shadow:0 0 0 1px #1a73e855,0 2px 6px #0004}
+.loc-dot{width:18px;height:18px;border-radius:50%;background:#1a73e8;border:3px solid #fff;box-shadow:0 0 0 1px #1a73e855,0 2px 6px #0005;position:relative}
+.loc-dot::after{content:"";position:absolute;inset:-9px;border-radius:50%;background:#1a73e833;animation:locp 2s ease-out infinite}
+@keyframes locp{0%{transform:scale(.4);opacity:1}100%{transform:scale(1.3);opacity:0}}
+.loc-btn.on{color:#1a73e8}
+.loc-btn.wait svg{animation:locw 1s linear infinite}
+@keyframes locw{50%{opacity:.3}}
+#cardDist{font-size:13px;font-weight:600;color:#1a73e8;margin-top:6px}
+#cardDist:empty{display:none}
+.cme{margin-top:8px;width:100%;font:inherit;font-size:13px;font-weight:600;border:1px dashed #9aa6b2;background:#fff;color:#18212b;border-radius:8px;padding:8px;cursor:pointer}
+.cme:disabled{opacity:.45;cursor:default}
 #empty{position:absolute;inset:0;display:none;align-items:center;justify-content:center;z-index:2000;background:#f6f7f9ee;padding:24px;text-align:center}
 #empty div{max-width:440px;font-size:14px;line-height:1.5}
 @media (max-width:760px){
@@ -203,6 +212,7 @@ button.x{border:0;background:none;font-size:26px;line-height:1;cursor:pointer;co
           <input type="search" id="cq" placeholder="Nom ou code postal…" autocomplete="off" enterkeyhint="search"
                  role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="cSug">
           <div id="cSug" role="listbox"></div>
+          <button type="button" id="cMe" class="cme" title="Utiliser ma position GPS comme centre">📍 Autour de ma position</button>
         </div>
         <div id="cSel" hidden>
           <div class="csel"><span id="cName"></span><button type="button" id="cClear" aria-label="Retirer la commune">×</button></div>
@@ -266,6 +276,7 @@ button.x{border:0;background:none;font-size:26px;line-height:1;cursor:pointer;co
 <div id="card" role="dialog" aria-label="Détail de l'installation">
   <button type="button" class="x" id="cardClose" aria-label="Fermer">×</button>
   <div id="cardBody" class="inst"></div>
+  <div id="cardDist"></div>
   <div class="card-act"><a id="cardNav" target="_blank" rel="noopener">Itinéraire</a><a id="cardMap" target="_blank" rel="noopener">Géoportail</a></div>
 </div>
 
@@ -303,22 +314,48 @@ FONDS[fond].addTo(map);
 L.control.layers(Object.fromEntries(Object.entries(FONDS).map(([k,v]) => [FOND_LABELS[k], v])), null,
   {position:"topright", collapsed:NARROW || !HOVER}).addTo(map);
 
-// bouton « ma position »
+// ---------------------------------------------------------------- position GPS
+// Sur téléphone / tablette, la position est suivie en continu dès l'ouverture (après autorisation).
 const locLayer = L.layerGroup().addTo(map);
+let ME = null, watchId = null, locBtn = null, follow = false, meDot = null, meAcc = null;
 const LocCtl = L.Control.extend({options:{position:"topleft"}, onAdd(){
   const d = L.DomUtil.create("div","leaflet-bar");
-  const b = L.DomUtil.create("button","loc-btn",d);
-  b.type = "button"; b.title = "Ma position"; b.setAttribute("aria-label","Centrer sur ma position"); b.textContent = "◎";
+  locBtn = L.DomUtil.create("button","loc-btn",d);
+  locBtn.type = "button"; locBtn.title = "Ma position"; locBtn.setAttribute("aria-label","Afficher et centrer ma position");
+  locBtn.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="currentColor"/><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 1v3M12 20v3M1 12h3M20 12h3" stroke="currentColor" stroke-width="2"/></svg>';
   L.DomEvent.disableClickPropagation(d);
-  b.onclick = () => map.locate({setView:true, maxZoom:12, enableHighAccuracy:true});
+  locBtn.onclick = () => startGps(true);
   return d; }});
 new LocCtl().addTo(map);
-map.on("locationfound", e => {
-  locLayer.clearLayers();
-  L.circle(e.latlng, {radius:e.accuracy, color:"#1a73e8", weight:1, fillOpacity:.08, interactive:false}).addTo(locLayer);
-  L.marker(e.latlng, {icon:L.divIcon({className:"", html:'<div class="loc-dot"></div>', iconSize:[14,14]}), interactive:false}).addTo(locLayer);
-});
-map.on("locationerror", () => alert("Position indisponible : autorisez la localisation pour ce site dans les réglages du navigateur."));
+function locState(st){ if (locBtn){ locBtn.classList.toggle("on", st === "on"); locBtn.classList.toggle("wait", st === "wait"); } }
+function onPos(pos, fromUser){
+  const ll = [pos.coords.latitude, pos.coords.longitude], first = !ME;
+  ME = {lat:ll[0], lon:ll[1], acc:pos.coords.accuracy, t:Date.now()};
+  if (!meDot){
+    meAcc = L.circle(ll, {renderer, radius:ME.acc, color:"#1a73e8", weight:1, fillColor:"#1a73e8", fillOpacity:.10, interactive:false}).addTo(locLayer);
+    meDot = L.marker(ll, {icon:L.divIcon({className:"", html:'<div class="loc-dot"></div>', iconSize:[18,18]}),
+                          interactive:false, zIndexOffset:1000, keyboard:false}).addTo(locLayer);
+  } else { meDot.setLatLng(ll); meAcc.setLatLng(ll).setRadius(ME.acc); }
+  locState("on");
+  if (follow || (first && fromUser)){ map.setView(ll, Math.max(map.getZoom(), 11)); follow = false; }
+  if (cardM) $("cardDist").textContent = distLabel(cardM._p);
+  if (pendingNear){ pendingNear = false; nearMe(); }
+}
+let pendingNear = false;
+function startGps(fromUser){
+  if (!("geolocation" in navigator)){ if (fromUser) alert("La géolocalisation n'est pas disponible sur cet appareil."); return; }
+  if (ME && fromUser){ map.setView([ME.lat, ME.lon], Math.max(map.getZoom(), 12)); }
+  if (watchId !== null) return;
+  if (fromUser) follow = true;
+  locState("wait");
+  watchId = navigator.geolocation.watchPosition(p => onPos(p, fromUser), err => {
+    navigator.geolocation.clearWatch(watchId); watchId = null; locState("");
+    if (fromUser) alert(err.code === 1
+      ? "Localisation refusée. Autorisez-la pour ce site : sur iPhone, Réglages › Safari › Position (ou Réglages › Confidentialité › Service de localisation), puis rechargez la page."
+      : "Position GPS indisponible pour le moment. Réessayez à l'extérieur ou dans quelques secondes.");
+  }, {enableHighAccuracy:true, maximumAge:15000, timeout:30000});
+}
+function distLabel(p){ return ME ? `À ${fmt(distKm(ME.lat, ME.lon, p.lat, p.lon), 1)} km de vous` : ""; }
 map.on("baselayerchange", e => {
   fond = Object.keys(FONDS).find(k => FONDS[k] === e.layer) || "ign";
   try { localStorage.setItem("fond", fond); } catch(err) {}
@@ -385,6 +422,7 @@ function showCard(m){
   cardM = m; const p = m._p;
   m.setStyle({color:"#18212b", weight:3}); m.bringToFront();
   $("cardBody").innerHTML = tooltipHtml(p);
+  $("cardDist").textContent = distLabel(p);
   $("cardNav").href = `https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lon}`;
   $("cardMap").href = `https://www.geoportail.gouv.fr/carte?c=${p.lon},${p.lat}&z=16&l0=ORTHOIMAGERY.ORTHOPHOTOS::GEOPORTAIL:OGC:WMTS(1)&permalink=yes`;
   $("panel").classList.remove("open");
@@ -417,7 +455,7 @@ function readForm(){
   F.t = [...document.querySelectorAll('input[name=t]:checked')].map(i=>i.value);
   F.s = [...document.querySelectorAll('input[name=s]:checked')].map(i=>i.value);
   F.r = $("region").value;
-  F.c = CSEL ? CSEL.code : "";
+  F.c = CSEL && !CSEL.gps ? CSEL.code : "";
   const k = parseFloat($("km").value); F.km = String(isFinite(k) && k > 0 ? Math.min(k, 300) : 20);
   F.pmin = $("pmin").value; F.pmax = $("pmax").value;
   F.y1 = $("y1").value; F.y2 = $("y2").value; F.q = $("q").value.trim();
@@ -483,14 +521,15 @@ const GEO = "https://geo.api.gouv.fr/communes";
 const GEO_F = "fields=nom,code,codesPostaux,centre,codeDepartement,population&format=json";
 function showCommune(){
   $("cBox").hidden = !!CSEL; $("cSel").hidden = !CSEL;
-  if (CSEL) $("cName").textContent = `${CSEL.nom} (${CSEL.dep})`;
+  if (CSEL) $("cName").textContent = CSEL.gps ? "📍 Ma position" : `${CSEL.nom} (${CSEL.dep})`;
 }
 function drawNear(fit){
   nearLayer.clearLayers();
   if (!CSEL){ $("cRes").innerHTML = ""; return; }
   const km = +F.km, c = [CSEL.lat, CSEL.lon];
-  const circle = L.circle(c, {radius:km*1000, color:"#18212b", weight:1.5, dashArray:"6 6", fill:true, fillOpacity:.04, interactive:false}).addTo(nearLayer);
-  L.circleMarker(c, {radius:5, color:"#fff", weight:2, fillColor:"#18212b", fillOpacity:1, interactive:false}).addTo(nearLayer);
+  // même canevas que les centrales : un second canevas intercepterait les clics sur les points
+  const circle = L.circle(c, {renderer, radius:km*1000, color:"#18212b", weight:1.5, dashArray:"6 6", fill:true, fillOpacity:.04, interactive:false}).addTo(nearLayer);
+  L.circleMarker(c, {renderer, radius:5, color:"#fff", weight:2, fillColor:"#18212b", fillOpacity:1, interactive:false}).addTo(nearLayer);
   if (fit) map.fitBounds(circle.getBounds(), {padding:[20,20]});
   const list = shown.map(m => m._p).sort((a,b) => a._d - b._d);
   const mw = list.reduce((s,p) => s + p.mw, 0);
@@ -549,6 +588,12 @@ $("cSug").addEventListener("mousedown", e => e.preventDefault());
 $("cSug").addEventListener("click", e => { const b = e.target.closest("button[data-i]"); if (b) setCommune(sugItems[+b.dataset.i]); });
 $("cq").addEventListener("blur", () => setTimeout(closeSug, 150));
 $("cClear").onclick = () => setCommune(null);
+$("cMe").onclick = () => nearMe();
+function nearMe(){
+  if (!ME){ pendingNear = true; startGps(true); return; }
+  CSEL = {code:"", nom:"Ma position", dep:"", lat:ME.lat, lon:ME.lon, gps:true};
+  $("cq").value = ""; closeSug(); showCommune(); apply(true);
+}
 async function loadCommune(code){
   try{
     const r = await fetch(`${GEO}/${encodeURIComponent(code)}?${GEO_F}`);
@@ -683,6 +728,7 @@ fetch("data/installations.json", {cache:"no-cache"})
     fillLists(); build(); EDIT.attach(markers); drawSizes(); readHash();
     if (F.c) await loadCommune(F.c);
     writeForm(); apply(true); setPeek();
+    if (NARROW || !HOVER) startGps(false);   // téléphone / tablette : position affichée d'emblée
   })
   .catch(err => {
     $("emptyMsg").innerHTML = `<b>Données absentes.</b><br>Le fichier <code>data/installations.json</code> n'a pas encore été généré. `
