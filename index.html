@@ -41,6 +41,13 @@ select:focus,input:focus{outline:2px solid #18212b22;border-color:#9aa6b2}
 .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .chips button{font:inherit;font-size:12px;border:1px solid var(--line);background:var(--chip);border-radius:999px;padding:4px 10px;cursor:pointer;color:var(--ink)}
 .chips button:hover{background:#e3e7ec}
+.sizes-f{display:flex;flex-wrap:wrap;gap:6px}
+.sizes-f label{display:flex;align-items:center;gap:6px;font-size:13px;border:1px solid var(--line);border-radius:999px;padding:5px 10px;cursor:pointer;user-select:none;background:#fff}
+.sizes-f label input{margin:0;accent-color:#18212b}
+.sizes-f label small{color:var(--muted);font-size:11px}
+.sizes-f label:has(input:not(:checked)){background:var(--chip);color:var(--muted);text-decoration:line-through;opacity:.7}
+.sizes-act{display:flex;gap:10px;margin-top:6px}
+.sizes-act button{font:inherit;font-size:12px;border:0;background:none;color:var(--muted);text-decoration:underline;cursor:pointer;padding:0}
 .actions{display:flex;gap:8px;margin-top:6px}
 .actions button{flex:1;font:inherit;font-size:13px;font-weight:600;border-radius:8px;padding:9px;cursor:pointer;border:1px solid var(--line);background:#fff;color:var(--ink)}
 .actions button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
@@ -107,16 +114,11 @@ select:focus,input:focus{outline:2px solid #18212b22;border-color:#9aa6b2}
       </fieldset>
       <fieldset>
         <legend>Puissance (MW)</legend>
-        <div class="row2">
-          <input type="number" id="pmin" min="0" step="0.5" placeholder="min (1)">
-          <input type="number" id="pmax" min="0" step="0.5" placeholder="max">
-        </div>
-        <div class="chips" id="pchips">
-          <button type="button" data-r="1,5">1–5</button>
-          <button type="button" data-r="5,12">5–12</button>
-          <button type="button" data-r="12,30">12–30</button>
-          <button type="button" data-r="30,100">30–100</button>
-          <button type="button" data-r="100,">&gt; 100</button>
+        <div class="sizes-f" id="sizesF"></div>
+        <div class="sizes-act"><button type="button" id="sAll">Toutes</button><button type="button" id="sNone">Aucune</button></div>
+        <div class="row2" style="margin-top:8px">
+          <input type="number" id="pmin" min="0" step="0.5" placeholder="min libre" aria-label="Puissance minimale (MW)">
+          <input type="number" id="pmax" min="0" step="0.5" placeholder="max libre" aria-label="Puissance maximale (MW)">
         </div>
       </fieldset>
       <fieldset>
@@ -234,16 +236,22 @@ function build(){
 map.on("zoomend", () => { const k = zoomK(); markers.forEach(m => m.setRadius(baseR(m._p.mw)*k)); drawSizes(); });
 
 // ---------------------------------------------------------------- filtres
-const F = {t:["PV","BESS"], r:"", e:"", pmin:"", pmax:"", y1:"", y2:"", q:""};
+const SIZES = [{lo:0,hi:5,l:"1–5 MW"},{lo:5,hi:12,l:"5–12 MW"},{lo:12,hi:30,l:"12–30 MW"},
+               {lo:30,hi:100,l:"30–100 MW"},{lo:100,hi:Infinity,l:"≥ 100 MW"}];
+const ALL_S = SIZES.map((_,i)=>String(i));
+const sizeOf = mw => SIZES.findIndex(c => mw >= c.lo && mw < c.hi);
+const F = {t:["PV","BESS"], s:[...ALL_S], r:"", e:"", pmin:"", pmax:"", y1:"", y2:"", q:""};
 
 function readForm(){
   F.t = [...document.querySelectorAll('input[name=t]:checked')].map(i=>i.value);
+  F.s = [...document.querySelectorAll('input[name=s]:checked')].map(i=>i.value);
   F.r = $("region").value; F.e = $("expl").value.trim();
   F.pmin = $("pmin").value; F.pmax = $("pmax").value;
   F.y1 = $("y1").value; F.y2 = $("y2").value; F.q = $("q").value.trim();
 }
 function writeForm(){
   document.querySelectorAll('input[name=t]').forEach(i => i.checked = F.t.includes(i.value));
+  document.querySelectorAll('input[name=s]').forEach(i => i.checked = F.s.includes(i.value));
   $("region").value = F.r; $("expl").value = F.e; $("pmin").value = F.pmin; $("pmax").value = F.pmax;
   $("y1").value = F.y1; $("y2").value = F.y2; $("q").value = F.q;
 }
@@ -254,6 +262,7 @@ function test(p){
     if (F.e === NO_EXPL){ if (p.expl) return false; }
     else if (!norm(p.expl).includes(norm(F.e))) return false;
   }
+  if (F.s.length < SIZES.length && !F.s.includes(String(sizeOf(p.mw)))) return false;
   if (F.pmin !== "" && p.mw < +F.pmin) return false;
   if (F.pmax !== "" && p.mw > +F.pmax) return false;
   const y = p.mes ? +p.mes.slice(0,4) : null;
@@ -277,8 +286,9 @@ function apply(fit){
   $("sBESS").textContent = fmt(be,0);
   const h = new URLSearchParams();
   Object.entries(F).forEach(([k,v]) => { const s = Array.isArray(v) ? v.join(",") : v;
-    if (s !== "" && !(k==="t" && s==="PV,BESS")) h.set(k,s); });
+    if (s !== "" && !(k==="t" && s==="PV,BESS") && !(k==="s" && s===ALL_S.join(","))) h.set(k,s); });
   if (F.t.length === 0) h.set("t","-");
+  if (F.s.length === 0) h.set("s","-");
   if (fond !== "ign") h.set("fond", fond);
   history.replaceState(null, "", h.toString() ? "#"+h.toString() : location.pathname + location.search);
   if (fit && shown.length && (F.r || F.e || F.q)){
@@ -289,7 +299,7 @@ function readHash(){
   const h = new URLSearchParams(location.hash.slice(1));
   for (const k of Object.keys(F)){
     if (!h.has(k)) continue;
-    F[k] = k === "t" ? (h.get(k) === "-" ? [] : h.get(k).split(",")) : h.get(k);
+    F[k] = (k === "t" || k === "s") ? (h.get(k) === "-" ? [] : h.get(k).split(",")) : h.get(k);
   }
 }
 
@@ -298,9 +308,13 @@ function fillLists(){
   DATA.forEach(p => regs[p.region] = (regs[p.region]||0) + 1);
   $("region").insertAdjacentHTML("beforeend", Object.keys(regs).sort((a,b)=>a.localeCompare(b,"fr"))
     .map(r => `<option value="${esc(r)}">${esc(r)} (${regs[r]})</option>`).join(""));
+  const sc = SIZES.map(() => 0); DATA.forEach(p => { const i = sizeOf(p.mw); if (i >= 0) sc[i]++; });
+  $("sizesF").innerHTML = SIZES.map((c,i) =>
+    `<label><input type="checkbox" name="s" value="${i}" checked>${c.l} <small>${sc[i]}</small></label>`).join("");
   const ex = {};
   DATA.forEach(p => { const k = p.expl || NO_EXPL; ex[k] = (ex[k]||0) + p.mw; });
-  $("explList").innerHTML = Object.entries(ex).sort((a,b)=>b[1]-a[1])
+  $("explList").innerHTML = Object.entries(ex)
+    .sort((a,b) => (b[0]===NO_EXPL) - (a[0]===NO_EXPL) || a[0].localeCompare(b[0],"fr",{sensitivity:"base", numeric:true}))
     .map(([k,v]) => `<option value="${esc(k)}">${fmt(v,0)} MW</option>`).join("");
 }
 
@@ -320,9 +334,9 @@ let deb;
 $("f").addEventListener("input", e => { clearTimeout(deb);
   deb = setTimeout(() => apply(["region","expl"].includes(e.target.id)), e.target.type==="search" ? 250 : 0); });
 $("f").addEventListener("change", e => { if (e.target.id === "region" || e.target.id === "expl") apply(true); });
-$("pchips").addEventListener("click", e => { const r = e.target.dataset.r; if (!r) return;
-  const [a,b] = r.split(","); $("pmin").value = a; $("pmax").value = b || ""; apply(false); });
-$("reset").onclick = () => { Object.assign(F,{t:["PV","BESS"],r:"",e:"",pmin:"",pmax:"",y1:"",y2:"",q:""});
+$("sAll").onclick = () => { document.querySelectorAll('input[name=s]').forEach(i => i.checked = true); apply(false); };
+$("sNone").onclick = () => { document.querySelectorAll('input[name=s]').forEach(i => i.checked = false); apply(false); };
+$("reset").onclick = () => { Object.assign(F,{t:["PV","BESS"],s:[...ALL_S],r:"",e:"",pmin:"",pmax:"",y1:"",y2:"",q:""});
   writeForm(); apply(false); map.setView([46.6,2.4],6); };
 $("csv").onclick = exportCsv;
 $("toggle").onclick = document.querySelector(".head").onclick = () => $("panel").classList.toggle("open");
