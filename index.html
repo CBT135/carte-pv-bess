@@ -196,7 +196,7 @@ function drawSizes(){
 
 let DATA = [], markers = [], META = {};
 
-const EXPL_SRC = {nom:"déduit du nom", osm:"OpenStreetMap", sirene:"via SIRENE", wikidata:"Wikidata", fichier:"renseigné manuellement"};
+const EXPL_SRC = {nom:"déduit du nom", osm:"OpenStreetMap", sirene:"via SIRENE", wikidata:"Wikidata", cre:"candidat appel d'offres CRE", fichier:"renseigné manuellement"};
 function tooltipHtml(p){
   const c = COLORS[p.type];
   const expl = p.expl
@@ -210,6 +210,7 @@ function tooltipHtml(p){
     <tr><td>Mise en service</td><td>${fmtDate(p.mes)}${p.mes_src==="raccordement" ? " (date de raccordement)" : ""}</td></tr>
     <tr><td>Exploitant</td><td>${expl}</td></tr>
     ${p.societe ? `<tr><td>Société</td><td>${esc(p.societe)}<br><span style="color:#8a96a3">SIREN ${esc(p.siren)}</span></td></tr>` : ""}
+    ${p.ao ? `<tr><td>Appel d'offres</td><td>CRE ${esc(p.ao)}<br><span style="color:#8a96a3">candidat ${esc(p.candidat)}</span></td></tr>` : ""}
     ${p.chaine && p.chaine.includes("→") ? `<tr><td>Actionnariat</td><td style="font-size:12px">${esc(p.chaine.split(" → ").slice(1).join(" → "))}</td></tr>` : ""}
     <tr><td>Commune</td><td>${esc(p.commune)}${p.dep ? " ("+esc(p.dep)+")" : ""}</td></tr>
     <tr><td>Réseau</td><td>${esc(p.grd || "–")}${p.tension ? " · "+esc(p.tension) : ""}</td></tr>
@@ -259,7 +260,7 @@ function test(p){
   if (F.y1 !== "" && (y == null || y < +F.y1)) return false;
   if (F.y2 !== "" && (y == null || y > +F.y2)) return false;
   if (F.q){ const q = norm(F.q);
-    if (![p.nom,p.commune,p.dep,p.insee,p.expl,p.poste,p.societe,p.siren].some(v => norm(v).includes(q))) return false; }
+    if (![p.nom,p.commune,p.dep,p.insee,p.expl,p.poste,p.societe,p.siren,p.candidat].some(v => norm(v).includes(q))) return false; }
   return true;
 }
 let shown = [];
@@ -337,7 +338,7 @@ fetch("data/installations.json", {cache:"no-cache"})
     $("sub").textContent = `${fmt(META.n,0)} installations · registre national ODRÉ · mis à jour le ${d.toLocaleDateString("fr-FR")}`;
     $("foot").innerHTML = `Source : ${esc(META.source)}. Seuil : puissance installée &gt; ${fmt(META.seuil_kw/1000,1)} MW, installations en service non déraccordées. `
 
-      + `L'exploitant n'est pas publié au registre : il provient, par ordre de priorité, de <code>data/exploitants.csv</code>, de la base SIRENE (société de projet et chaîne d'actionnaires), d'OpenStreetMap, de Wikidata, ou du nom de l'installation.`
+      + `L'exploitant n'est pas publié au registre : il provient, par ordre de priorité, de <code>data/exploitants.csv</code>, de la base SIRENE (société de projet et chaîne d'actionnaires), des lauréats des appels d'offres CRE, d'OpenStreetMap, de Wikidata, ou du nom de l'installation.`
       + (META.osm && META.osm.localisees ? ` ${fmt(META.osm.localisees,0)} installations positionnées sur leur emprise OpenStreetMap, les autres au centroïde de la commune.` : "")
       + (META.sans_coordonnees ? ` ${META.sans_coordonnees} installation(s) non géolocalisée(s).` : "");
     fillLists(); build(); EDIT.attach(markers); drawSizes(); readHash(); writeForm(); apply(true);

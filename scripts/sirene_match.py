@@ -212,7 +212,7 @@ def _resource(meta, prefix):
     return None
 
 
-def load_stock(tmp: Path):
+def load_stock(tmp: Path, names=()):
     """Établissements actifs NAF 35.11Z depuis le stock SIRENE (Parquet, data.gouv.fr), regroupés par commune."""
     import duckdb  # installé par le workflow
     meta = json.loads(urllib.request.urlopen(urllib.request.Request(SIRENE_DATASET, headers=UA), timeout=60).read())
@@ -269,11 +269,31 @@ def load_stock(tmp: Path):
             continue
         by[insee][siren] = {"siren": siren, "nom": nom or "", "sigle": sigle, "siret": siret,
                             "enseignes": [x for x in (e1, e2) if x], "dirigeants_pm": [], "siege_cp": None}
+    by_name = defaultdict(list)
+    if names:
+        try:
+            con = duckdb.connect()
+            con.execute("CREATE TABLE k(k VARCHAR)")
+            con.executemany("INSERT INTO k VALUES (?)", [(x,) for x in sorted(set(names)) if x])
+            legal = "(SASU|SAS|SARL|EURL|SNC|SA|SCI|SEM|SEML|SCIC|SCA|SPV)"
+            q = f"""
+                WITH u AS (
+                  SELECT siren, denominationUniteLegale AS nom, activitePrincipaleUniteLegale AS naf,
+                         regexp_replace(regexp_replace(upper(strip_accents(denominationUniteLegale)),
+                             '^{legal}\\s+|\\s+{legal}$', ''), '[^A-Z0-9]', '', 'g') AS k
+                  FROM read_parquet('{paths['ul']}')
+                  WHERE etatAdministratifUniteLegale = 'A' AND denominationUniteLegale IS NOT NULL)
+                SELECT u.k, u.siren, u.nom, u.naf FROM u JOIN k USING (k)"""
+            for k, siren, nom, naf in con.execute(q).fetchall():
+                by_name[k].append({"siren": siren, "nom": nom, "naf": naf})
+            print(f"  SIRENE : {len(by_name)} / {len(set(names))} sociétés candidates CRE retrouvées", file=sys.stderr)
+        except Exception as e:
+            print(f"  SIRENE : recherche des candidats CRE impossible ({e})", file=sys.stderr)
     for p in paths.values():
         Path(p).unlink(missing_ok=True)
     print(f"  SIRENE stock : {len(rows)} établissements 35.11Z actifs dans {len(by)} communes, "
           f"{len(national)} sociétés de production en France", file=sys.stderr)
-    return {k: list(v.values()) for k, v in by.items()}, national
+    return {k: list(v.values()) for k, v in by.items()}, national, by_name
 
 
 # --------------------------------------------------------------------------- recherche nationale par nom

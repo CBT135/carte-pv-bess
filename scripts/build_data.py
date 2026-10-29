@@ -28,6 +28,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import osm_match  # noqa: E402
 import sirene_match  # noqa: E402
 import wikidata  # noqa: E402
+import cre  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "data"
@@ -294,7 +295,7 @@ def write_holdings_a_classer(pts):
     au format de data/groupes.csv (colonne groupe à remplir)."""
     agg = defaultdict(lambda: [0.0, 0])
     for p in pts:
-        if p["expl"] and p["expl_src"] in ("sirene", "osm", "wikidata") and not canon(p["expl"]):
+        if p["expl"] and p["expl_src"] in ("sirene", "osm", "wikidata", "cre") and not canon(p["expl"]):
             agg[p["expl"]][0] += p["mw"]
             agg[p["expl"]][1] += 1
     with (DATA / "holdings_a_classer.csv").open("w", encoding="utf-8-sig", newline="") as fh:
@@ -428,7 +429,7 @@ def main():
         rec["lat"], rec["lon"] = c
         rec["loc_src"] = "commune"
         rec["osm"] = None
-        rec["siren"] = rec["societe"] = rec["chaine"] = rec["wikidata"] = None
+        rec["siren"] = rec["societe"] = rec["chaine"] = rec["wikidata"] = rec["ao"] = rec["candidat"] = None
         pts.append(rec)
 
     osm_stats = {}
@@ -437,18 +438,38 @@ def main():
         n_loc, n_expl = osm_match.match(pts, osm, canon)
         osm_stats = {"source": osm_src, "objets": len(osm), "localisees": n_loc, "exploitants": n_expl}
         print(f"  OSM : {n_loc} installations rapprochées, {n_expl} exploitants récupérés", file=sys.stderr)
+    cre_stats = {}
+    cre_rows, cre_src = cre.fetch(DATA / "cre_laureats.csv")
+    if cre_rows:
+        cre_stats = {"source": cre_src, "dossiers": len(cre_rows), "rattachees": cre.match(pts, cre_rows)}
+
     sirene_stats = {}
     if not a.no_sirene:
         print("SIRENE : établissements de production d'électricité (NAF 35.11Z)…", file=sys.stderr)
         national = []
         try:
-            by_c, national = sirene_match.load_stock(Path(a.tmp))
+            by_c, national, by_name = sirene_match.load_stock(
+                Path(a.tmp), names={cre.compact(p["candidat"]) for p in pts if p["candidat"]})
             mode = "stock Parquet"
         except Exception as e:
             print(f"  stock SIRENE indisponible ({e}) : repli sur l'API par commune", file=sys.stderr)
             by_c, _ = sirene_match.fetch_all({p["insee"] for p in pts}, DATA / "sirene_cache.json")
+            by_name = {}
             mode = "API"
         sirene_match.match(pts, by_c, canon)
+        # société candidate à l'appel d'offres CRE = société de projet (prioritaire sur les rapprochements par nom)
+        n_cre = 0
+        for p in pts:
+            if not p["candidat"]:
+                continue
+            hits = by_name.get(cre.compact(p["candidat"])) or []
+            hits = sorted(hits, key=lambda h: h["naf"] != "35.11Z")
+            if len(hits) == 1 or (len(hits) > 1 and hits[0]["naf"] == "35.11Z" and hits[1]["naf"] != "35.11Z"):
+                p["siren"], p["societe"] = hits[0]["siren"], hits[0]["nom"]
+                if p["expl_src"] in (None, "sirene"):
+                    p["expl"], p["expl_src"] = canon(hits[0]["nom"]) or hits[0]["nom"], "sirene"
+                n_cre += 1
+        cre_stats["siren"] = n_cre
         n_nat = sirene_match.national_match(pts, national, canon, COMMUNES_HOMONYMES, norm) if national else 0
         n_h = sirene_match.enrich_holdings(pts, DATA / "sirene_dirigeants.json", canon)
         sirene_stats = {"mode": mode, "societes_rattachees": sum(1 for p in pts if p["siren"]),
@@ -464,6 +485,11 @@ def main():
         wd_stats = {"source": wd_src, "objets": len(wd), "exploitants": n_expl, "localisees": n_loc}
         print(f"  Wikidata : {wd_stats}", file=sys.stderr)
 
+    # candidat CRE introuvable dans SIRENE : la société candidate sert d'exploitant à défaut de mieux
+    for p in pts:
+        if p["candidat"] and not p["expl"]:
+            p["expl"], p["expl_src"] = canon(p["candidat"]) or p["candidat"], "cre"
+
     # dernière passe : regroupement des libellés sur les groupes connus (data/groupes.csv compris)
     for p in pts:
         if p["expl"] and p["expl_src"] != "fichier":
@@ -475,7 +501,7 @@ def main():
     pts.sort(key=lambda p: -p["mw"])
 
     fields = ["nom", "type", "techno", "mw", "mw_charge", "mes", "mes_src", "expl", "expl_src",
-              "commune", "insee", "dep", "region", "grd", "tension", "poste", "eic", "lat", "lon", "loc_src", "osm", "siren", "societe", "chaine", "wikidata"]
+              "commune", "insee", "dep", "region", "grd", "tension", "poste", "eic", "lat", "lon", "loc_src", "osm", "siren", "societe", "chaine", "wikidata", "ao", "candidat"]
     out = {
         "meta": {
             "source": source,
@@ -489,6 +515,7 @@ def main():
             "osm": osm_stats,
             "sirene": sirene_stats,
             "wikidata": wd_stats,
+            "cre": cre_stats,
             "exploitant_identifie_mw": round(sum(p["mw"] for p in pts if p["expl"]), 1),
             "localisation": "centroïde de la commune du point de livraison (le registre ne publie pas de coordonnées)",
         },
