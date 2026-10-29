@@ -77,6 +77,30 @@ select:focus,input:focus{outline:2px solid #18212b22;border-color:#9aa6b2}
 .inst td:first-child{color:var(--muted);padding-right:10px;white-space:nowrap}
 .inst .note{font-size:11px;color:var(--muted);margin-top:6px}
 #toggle{display:none}
+#cBox{position:relative}
+#cSug{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:20;background:#fff;border:1px solid var(--line);border-radius:10px;
+  box-shadow:0 8px 24px #0f172a26;overflow:hidden;display:none}
+#cSug.open{display:block}
+#cSug button{display:flex;justify-content:space-between;gap:8px;width:100%;border:0;background:#fff;text-align:left;font:inherit;font-size:14px;
+  padding:10px 12px;cursor:pointer;color:var(--ink);border-bottom:1px solid #f0f2f5}
+#cSug button:last-child{border-bottom:0}
+#cSug button:hover,#cSug button.act{background:#f3f5f8}
+#cSug button small{color:var(--muted);white-space:nowrap}
+#cSug .msg{padding:10px 12px;font-size:13px;color:var(--muted)}
+.csel{display:flex;align-items:center;justify-content:space-between;gap:8px;border:1px solid #18212b;box-shadow:inset 0 0 0 1px #18212b;
+  border-radius:8px;padding:7px 6px 7px 10px;font-size:14px;font-weight:600}
+.csel button{border:0;background:none;font-size:20px;line-height:1;cursor:pointer;color:var(--muted);padding:0 6px}
+.crow{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:13px;color:var(--muted)}
+.crow input{width:90px!important;text-align:right}
+#cRes{margin-top:8px;font-size:12.5px;color:var(--muted)}
+#cRes ol{list-style:none;margin:6px 0 0;padding:0;max-height:260px;overflow:auto;border:1px solid var(--line);border-radius:8px}
+#cRes li{display:grid;grid-template-columns:1fr auto;gap:2px 8px;padding:7px 10px;border-bottom:1px solid #f0f2f5;cursor:pointer;color:var(--ink)}
+#cRes li:last-child{border-bottom:0}
+#cRes li:hover{background:#f6f7f9}
+#cRes li b{font-weight:600;font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#cRes li span{font-size:11.5px;color:var(--muted)}
+#cRes li em{font-style:normal;font-size:12px;font-variant-numeric:tabular-nums;color:var(--ink);text-align:right}
+#cRes li i{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px;vertical-align:1px}
 .picker{width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;font:inherit;font-size:14px;padding:8px 10px;
   border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);cursor:pointer;text-align:left}
 .picker span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -172,6 +196,19 @@ button.x{border:0;background:none;font-size:26px;line-height:1;cursor:pointer;co
       <fieldset>
         <label class="lbl" for="region">Région</label>
         <select id="region"><option value="">Toutes les régions</option></select>
+      </fieldset>
+      <fieldset class="near">
+        <label class="lbl" for="cq">Autour d'une commune</label>
+        <div id="cBox">
+          <input type="search" id="cq" placeholder="Nom ou code postal…" autocomplete="off" enterkeyhint="search"
+                 role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="cSug">
+          <div id="cSug" role="listbox"></div>
+        </div>
+        <div id="cSel" hidden>
+          <div class="csel"><span id="cName"></span><button type="button" id="cClear" aria-label="Retirer la commune">×</button></div>
+          <div class="crow"><label for="km">Rayon</label><input type="number" id="km" min="1" max="300" step="1" value="20" inputmode="numeric"><span>km</span></div>
+          <div id="cRes"></div>
+        </div>
       </fieldset>
       <fieldset>
         <label class="lbl" for="explBtn">Exploitant</label>
@@ -367,24 +404,34 @@ const SIZES = [{lo:0,hi:5,l:"1–5 MW"},{lo:5,hi:12,l:"5–12 MW"},{lo:12,hi:30,
                {lo:30,hi:100,l:"30–100 MW"},{lo:100,hi:Infinity,l:"≥ 100 MW"}];
 const ALL_S = SIZES.map((_,i)=>String(i));
 const sizeOf = mw => SIZES.findIndex(c => mw >= c.lo && mw < c.hi);
-const F = {t:["PV","BESS"], s:[...ALL_S], r:"", e:[], pmin:"", pmax:"", y1:"", y2:"", q:""};
+const F = {t:["PV","BESS"], s:[...ALL_S], r:"", e:[], c:"", km:"20", pmin:"", pmax:"", y1:"", y2:"", q:""};
+let CSEL = null;           // commune choisie {code, nom, dep, lat, lon}
+const nearLayer = L.layerGroup().addTo(map);
+function distKm(a, b, c, d){
+  const R = 6371, r = Math.PI/180, dl = (c-a)*r, dg = (d-b)*r;
+  const x = Math.sin(dl/2)**2 + Math.cos(a*r)*Math.cos(c*r)*Math.sin(dg/2)**2;
+  return 2*R*Math.asin(Math.sqrt(x));
+}
 
 function readForm(){
   F.t = [...document.querySelectorAll('input[name=t]:checked')].map(i=>i.value);
   F.s = [...document.querySelectorAll('input[name=s]:checked')].map(i=>i.value);
   F.r = $("region").value;
+  F.c = CSEL ? CSEL.code : "";
+  const k = parseFloat($("km").value); F.km = String(isFinite(k) && k > 0 ? Math.min(k, 300) : 20);
   F.pmin = $("pmin").value; F.pmax = $("pmax").value;
   F.y1 = $("y1").value; F.y2 = $("y2").value; F.q = $("q").value.trim();
 }
 function writeForm(){
   document.querySelectorAll('input[name=t]').forEach(i => i.checked = F.t.includes(i.value));
   document.querySelectorAll('input[name=s]').forEach(i => i.checked = F.s.includes(i.value));
-  $("region").value = F.r; explLabel(); $("pmin").value = F.pmin; $("pmax").value = F.pmax;
+  $("region").value = F.r; explLabel(); $("km").value = F.km || "20"; showCommune(); $("pmin").value = F.pmin; $("pmax").value = F.pmax;
   $("y1").value = F.y1; $("y2").value = F.y2; $("q").value = F.q;
 }
 function test(p){
   if (!F.t.includes(p.type)) return false;
   if (F.r && p.region !== F.r) return false;
+  if (CSEL){ p._d = distKm(CSEL.lat, CSEL.lon, p.lat, p.lon); if (p._d > +F.km) return false; }
   if (F.e.length && !ESEL.has(p.expl || NO_EXPL)) return false;
   if (F.s.length < SIZES.length && !F.s.includes(String(sizeOf(p.mw)))) return false;
   if (F.pmin !== "" && p.mw < +F.pmin) return false;
@@ -412,12 +459,13 @@ function apply(fit){
   $("sBESS").textContent = fmt(be,0);
   const h = new URLSearchParams();
   Object.entries(F).forEach(([k,v]) => { const s = Array.isArray(v) ? v.join(k === "e" ? "|" : ",") : v;
-    if (s !== "" && !(k==="t" && s==="PV,BESS") && !(k==="s" && s===ALL_S.join(","))) h.set(k,s); });
+    if (s !== "" && !(k==="t" && s==="PV,BESS") && !(k==="s" && s===ALL_S.join(",")) && !(k==="km" && !F.c)) h.set(k,s); });
   if (F.t.length === 0) h.set("t","-");
   if (F.s.length === 0) h.set("s","-");
   if (fond !== "ign") h.set("fond", fond);
   history.replaceState(null, "", h.toString() ? "#"+h.toString() : location.pathname + location.search);
-  if (fit && shown.length && (F.r || F.e.length || F.q)){
+  drawNear(fit);
+  if (fit && !CSEL && shown.length && (F.r || F.e.length || F.q)){
     map.fitBounds(L.latLngBounds(shown.map(m=>m.getLatLng())).pad(.08), {maxZoom:11});
   }
 }
@@ -428,6 +476,85 @@ function readHash(){
     F[k] = (k === "t" || k === "s") ? (h.get(k) === "-" ? [] : h.get(k).split(","))
          : k === "e" ? h.get(k).split("|").filter(Boolean) : h.get(k);
   }
+}
+
+// ---------------------------------------------------------------- recherche autour d'une commune
+const GEO = "https://geo.api.gouv.fr/communes";
+const GEO_F = "fields=nom,code,codesPostaux,centre,codeDepartement,population&format=json";
+function showCommune(){
+  $("cBox").hidden = !!CSEL; $("cSel").hidden = !CSEL;
+  if (CSEL) $("cName").textContent = `${CSEL.nom} (${CSEL.dep})`;
+}
+function drawNear(fit){
+  nearLayer.clearLayers();
+  if (!CSEL){ $("cRes").innerHTML = ""; return; }
+  const km = +F.km, c = [CSEL.lat, CSEL.lon];
+  const circle = L.circle(c, {radius:km*1000, color:"#18212b", weight:1.5, dashArray:"6 6", fill:true, fillOpacity:.04, interactive:false}).addTo(nearLayer);
+  L.circleMarker(c, {radius:5, color:"#fff", weight:2, fillColor:"#18212b", fillOpacity:1, interactive:false}).addTo(nearLayer);
+  if (fit) map.fitBounds(circle.getBounds(), {padding:[20,20]});
+  const list = shown.map(m => m._p).sort((a,b) => a._d - b._d);
+  const mw = list.reduce((s,p) => s + p.mw, 0);
+  $("cRes").innerHTML = `<b style="color:var(--ink)">${fmt(list.length,0)} centrale${list.length>1?"s":""}</b> à moins de ${fmt(km,0)} km · ${fmt(mw,0)} MW`
+    + (list.length ? `<ol>${list.slice(0,200).map((p,i) => `<li data-i="${DATA.indexOf(p)}"><b><i style="background:${COLORS[p.type].fill}"></i>${esc(p.nom)}</b>`
+      + `<em>${fmt(p._d,1)} km</em><span>${esc(p.commune)} · ${esc(p.expl || NO_EXPL)}</span><em>${fmt(p.mw,1)} MW</em></li>`).join("")}</ol>`
+      + (list.length > 200 ? `<div style="margin-top:4px">200 plus proches affichées — l'export CSV contient tout.</div>` : "") : "");
+}
+$("cRes").addEventListener("click", e => {
+  const li = e.target.closest("li[data-i]"); if (!li) return;
+  const m = markers[+li.dataset.i]; if (!m) return;
+  map.setView(m.getLatLng(), Math.max(map.getZoom(), 12));
+  if (HOVER && !NARROW) setTimeout(() => m.openTooltip(), 300); else showCard(m);
+});
+function setCommune(c){
+  CSEL = c ? {code:c.code, nom:c.nom, dep:c.codeDepartement || "", lat:c.centre.coordinates[1], lon:c.centre.coordinates[0]} : null;
+  $("cq").value = ""; closeSug(); showCommune(); apply(true);
+}
+let sugItems = [], sugAct = -1, sugReq = 0;
+function closeSug(){ $("cSug").classList.remove("open"); $("cq").setAttribute("aria-expanded","false"); sugAct = -1; }
+function renderSug(msg){
+  const box = $("cSug");
+  box.innerHTML = msg ? `<div class="msg">${msg}</div>` : sugItems.map((c,i) =>
+    `<button type="button" role="option" data-i="${i}"${i===sugAct?' class="act"':''}><span>${esc(c.nom)}</span>`
+    + `<small>${esc(c.codeDepartement)} · ${esc((c.codesPostaux||[])[0] || "")}</small></button>`).join("");
+  box.classList.add("open"); $("cq").setAttribute("aria-expanded","true");
+}
+async function searchCommunes(q){
+  const id = ++sugReq;
+  const url = /^\d{5}$/.test(q) ? `${GEO}?codePostal=${q}&${GEO_F}`
+            : /^\d{2,4}$/.test(q) ? null
+            : `${GEO}?nom=${encodeURIComponent(q)}&boost=population&limit=8&${GEO_F}`;
+  if (!url){ renderSug("Code postal : 5 chiffres"); return; }
+  try{
+    const r = await fetch(url); const j = r.ok ? await r.json() : [];
+    if (id !== sugReq) return;
+    sugItems = j.filter(c => c.centre).slice(0, 8); sugAct = sugItems.length ? 0 : -1;
+    renderSug(sugItems.length ? "" : "Aucune commune trouvée");
+  }catch(e){ if (id === sugReq) renderSug("Recherche de communes indisponible"); }
+}
+let cDeb;
+$("cq").addEventListener("input", e => {
+  e.stopPropagation();
+  const q = $("cq").value.trim(); clearTimeout(cDeb);
+  if (q.length < 2){ closeSug(); return; }
+  cDeb = setTimeout(() => searchCommunes(q), 200);
+});
+$("cq").addEventListener("keydown", e => {
+  if (!$("cSug").classList.contains("open") || !sugItems.length) return;
+  if (e.key === "ArrowDown"){ sugAct = (sugAct + 1) % sugItems.length; renderSug(); e.preventDefault(); }
+  else if (e.key === "ArrowUp"){ sugAct = (sugAct - 1 + sugItems.length) % sugItems.length; renderSug(); e.preventDefault(); }
+  else if (e.key === "Enter"){ e.preventDefault(); setCommune(sugItems[Math.max(0, sugAct)]); }
+  else if (e.key === "Escape") closeSug();
+});
+$("cSug").addEventListener("mousedown", e => e.preventDefault());
+$("cSug").addEventListener("click", e => { const b = e.target.closest("button[data-i]"); if (b) setCommune(sugItems[+b.dataset.i]); });
+$("cq").addEventListener("blur", () => setTimeout(closeSug, 150));
+$("cClear").onclick = () => setCommune(null);
+async function loadCommune(code){
+  try{
+    const r = await fetch(`${GEO}/${encodeURIComponent(code)}?${GEO_F}`);
+    if (r.ok){ const c = await r.json(); if (c && c.centre) CSEL = {code:c.code, nom:c.nom, dep:c.codeDepartement || "",
+      lat:c.centre.coordinates[1], lon:c.centre.coordinates[0]}; }
+  }catch(e){}
 }
 
 function fillLists(){
@@ -488,6 +615,7 @@ document.addEventListener("keydown", e => { if (e.key === "Escape"){ closeExplSh
 
 function exportCsv(){
   const cols = ["nom","type","techno","mw","mw_charge","mes","mes_src","expl","expl_src","commune","insee","dep","region","grd","tension","poste","eic","siren","societe","loc_src","lat","lon"];
+  if (CSEL){ cols.unshift("distance_km"); shown.forEach(m => m._p.distance_km = Math.round(m._p._d*10)/10); }
   const q = v => { const s = v == null ? "" : String(v); return /[;"\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s; };
   const lines = [cols.join(";")].concat(shown.map(m => cols.map(c => {
     const v = m._p[c]; return typeof v === "number" ? String(v).replace(".",",") : q(v); }).join(";")));
@@ -499,11 +627,12 @@ function exportCsv(){
 
 // ---------------------------------------------------------------- évènements
 let deb;
-$("f").addEventListener("input", e => { clearTimeout(deb);
-  deb = setTimeout(() => apply(e.target.id === "region"), e.target.type==="search" ? 250 : 0); });
+$("f").addEventListener("input", e => { if (e.target.id === "cq") return; clearTimeout(deb);
+  deb = setTimeout(() => apply(e.target.id === "region" || e.target.id === "km"),
+    e.target.type==="search" ? 250 : e.target.id === "km" ? 400 : 0); });
 $("sAll").onclick = () => { document.querySelectorAll('input[name=s]').forEach(i => i.checked = true); apply(false); };
 $("sNone").onclick = () => { document.querySelectorAll('input[name=s]').forEach(i => i.checked = false); apply(false); };
-$("reset").onclick = () => { Object.assign(F,{t:["PV","BESS"],s:[...ALL_S],r:"",e:[],pmin:"",pmax:"",y1:"",y2:"",q:""});
+$("reset").onclick = () => { CSEL = null; Object.assign(F,{t:["PV","BESS"],s:[...ALL_S],r:"",e:[],c:"",km:"20",pmin:"",pmax:"",y1:"",y2:"",q:""});
   writeForm(); apply(false); map.setView(NARROW ? [46.4,2.4] : [46.6,2.4], NARROW ? 5 : 6); };
 $("csv").onclick = exportCsv;
 $("toggle").onclick = document.querySelector(".head").onclick = () => { hideCard(); $("panel").classList.toggle("open"); };
@@ -551,7 +680,9 @@ fetch("data/installations.json", {cache:"no-cache"})
       + `L'exploitant n'est pas publié au registre : il provient, par ordre de priorité, de <code>data/exploitants.csv</code>, de la base SIRENE (société de projet et chaîne d'actionnaires), des lauréats des appels d'offres CRE, d'OpenStreetMap, de Wikidata, ou du nom de l'installation.`
       + (META.osm && META.osm.localisees ? ` ${fmt(META.osm.localisees,0)} installations positionnées sur leur emprise OpenStreetMap, les autres au centroïde de la commune.` : "")
       + (META.sans_coordonnees ? ` ${META.sans_coordonnees} installation(s) non géolocalisée(s).` : "");
-    fillLists(); build(); EDIT.attach(markers); drawSizes(); readHash(); writeForm(); apply(true); setPeek();
+    fillLists(); build(); EDIT.attach(markers); drawSizes(); readHash();
+    if (F.c) await loadCommune(F.c);
+    writeForm(); apply(true); setPeek();
   })
   .catch(err => {
     $("emptyMsg").innerHTML = `<b>Données absentes.</b><br>Le fichier <code>data/installations.json</code> n'a pas encore été généré. `
