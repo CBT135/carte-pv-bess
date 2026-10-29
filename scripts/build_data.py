@@ -181,6 +181,7 @@ OPERATEURS = [
     (r"\bCOROSOL\b|\bCORSICA SOLE\b", "Corsica Sole"),
     (r"\bJPEE\b|\bJP ENERGIE ENVIRONNEMENT\b", "JPee"),
     (r"\bENCAVIS\b", "Encavis"),
+    (r"^TSE\b|\bTSE APHAIA\b", "TSE"),
     (r"\bZE ENERGY\b", "ZE Energy"),
     (r"\bERG\b", "ERG"),
     (r"\bSEOLIS\b", "Séolis"),
