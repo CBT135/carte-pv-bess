@@ -20,6 +20,13 @@
   "nom": "WATT MONTELEGER",
   "insee": "26196"
  },
+ "17W000000058435T": {
+  "lat": 45.440534,
+  "lon": -0.528588,
+  "date": "2026-10-29",
+  "nom": "SARL DU BREUIL",
+  "insee": "17187"
+ },
  "17W000000059483D": {
   "lat": 43.370526,
   "lon": 1.797552,
@@ -391,6 +398,13 @@
   "nom": "Confidentiel",
   "insee": "13053"
  },
+ "17W000002301452K": {
+  "lat": 45.442815,
+  "lon": -0.514318,
+  "date": "2026-10-29",
+  "nom": "Confidentiel",
+  "insee": "17187"
+ },
  "17W000002351087O": {
   "lat": 43.849928,
   "lon": 5.854297,
@@ -418,5 +432,12 @@
   "date": "2026-10-29",
   "nom": "B.PAIV02 - ADP 02 DE LA CENTRALE SOLAIRE PHOTOVOLTAIQUE DE BOIS PAILLET (PRASVILLE)",
   "insee": "28422"
+ },
+ "17W000002499923H": {
+  "lat": 46.390048,
+  "lon": 2.702846,
+  "date": "2026-10-29",
+  "nom": "PARC PV ENERGIE DU PARTAGE 15",
+  "insee": "03031"
  }
 }
