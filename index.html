@@ -302,7 +302,7 @@ function drawSizes(){
 
 let DATA = [], markers = [], META = {};
 
-const EXPL_SRC = {nom:"déduit du nom", osm:"OpenStreetMap", sirene:"via SIRENE", wikidata:"Wikidata", cre:"candidat appel d'offres CRE", fichier:"renseigné manuellement"};
+const EXPL_SRC = {nom:"déduit du nom", osm:"OpenStreetMap", sirene:"via SIRENE", wikidata:"Wikidata", cre:"candidat appel d'offres CRE", fichier:"renseigné manuellement ou recherche documentaire", site:"déduit des autres tranches du site", motif:"déduit de la codification du nom", sirene_commune:"probable : seule société de production de la commune"};
 function tooltipHtml(p){
   const c = COLORS[p.type];
   const expl = p.expl

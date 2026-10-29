@@ -261,7 +261,7 @@ const EDIT = (() => {
   function openExpl(m){
     exM = m; const p = m._p;
     $("edExNom").textContent = p.nom;
-    const src = {fichier:"saisi manuellement", sirene:"SIRENE", osm:"OpenStreetMap", wikidata:"Wikidata", nom:"déduit du nom"}[p.expl_src];
+    const src = {fichier:"saisi manuellement", sirene:"SIRENE", sirene_commune:"SIRENE, probable", osm:"OpenStreetMap", wikidata:"Wikidata", cre:"appel d'offres CRE", site:"autres tranches du site", motif:"codification du nom", nom:"déduit du nom"}[p.expl_src];
     $("edExInfo").textContent = `${(p.mw||0).toLocaleString("fr-FR")} MW · ${p.commune || ""}` +
       (p.expl ? ` · actuel : ${p.expl}${src ? " (" + src + ")" : ""}` : " · exploitant non identifié");
     $("edExIn").value = p.expl_src === "fichier" ? p.expl : "";

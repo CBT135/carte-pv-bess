@@ -29,6 +29,7 @@ import osm_match  # noqa: E402
 import sirene_match  # noqa: E402
 import wikidata  # noqa: E402
 import cre  # noqa: E402
+import infer  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "data"
@@ -201,6 +202,12 @@ OPERATEURS = [
     (r"\bJPEE\b|\bJP ENERGIE ENVIRONNEMENT\b", "JPee"),
     (r"\bENCAVIS\b", "Encavis"),
     (r"^TSE\b|\bTSE APHAIA\b", "TSE"),
+    (r"\bOX2\b", "OX2"),
+    (r"^CRYO\b", "CRYO"),
+    # codifications de projets propres à un développeur (vérifiées sur les installations identifiées)
+    (r"^C\d{4}\s*-\s*(?:CS|MCT)\b", "Urbasolar"),
+    (r"^RS\d+$", "Reden Solar"),
+    (r"^\d\d_\d{3}_", "EDF Renouvelables"),
     (r"\bZE ENERGY\b", "ZE Energy"),
     (r"\bERG\b", "ERG"),
     (r"\bSEOLIS\b", "Séolis"),
@@ -313,7 +320,8 @@ def write_holdings_a_classer(pts):
     au format de data/groupes.csv (colonne groupe à remplir)."""
     agg = defaultdict(lambda: [0.0, 0])
     for p in pts:
-        if p["expl"] and p["expl_src"] in ("sirene", "osm", "wikidata", "cre") and not canon(p["expl"]):
+        if p["expl"] and p["expl_src"] in ("sirene", "sirene_commune", "osm", "wikidata", "cre", "site", "motif") \
+                and not canon(p["expl"]):
             agg[p["expl"]][0] += p["mw"]
             agg[p["expl"]][1] += 1
     with (DATA / "holdings_a_classer.csv").open("w", encoding="utf-8-sig", newline="") as fh:
@@ -484,7 +492,7 @@ def main():
             hits = sorted(hits, key=lambda h: h["naf"] != "35.11Z")
             if len(hits) == 1 or (len(hits) > 1 and hits[0]["naf"] == "35.11Z" and hits[1]["naf"] != "35.11Z"):
                 p["siren"], p["societe"] = hits[0]["siren"], hits[0]["nom"]
-                if p["expl_src"] in (None, "sirene"):
+                if p["expl_src"] in (None, "sirene", "sirene_commune", "nom"):
                     p["expl"], p["expl_src"] = canon(hits[0]["nom"]) or hits[0]["nom"], "sirene"
                 n_cre += 1
         cre_stats["siren"] = n_cre
@@ -507,6 +515,10 @@ def main():
     for p in pts:
         if p["candidat"] and not p["expl"]:
             p["expl"], p["expl_src"] = canon(p["candidat"]) or p["candidat"], "cre"
+
+    n_site, n_motif, _ = infer.infer(pts, canon)
+    print(f"  Déduction : {n_site} par les autres tranches du site, {n_motif} par la codification du nom",
+          file=sys.stderr)
 
     # dernière passe : regroupement des libellés sur les groupes connus (data/groupes.csv compris)
     for p in pts:

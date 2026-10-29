@@ -181,6 +181,14 @@ def match(recs, by_commune, canon):
                      (best[0] >= 1 and best[0] - second[0] >= 1) or \
                      (len(cands) == 1 and same_type <= 2 and best[0] >= 0.5) or \
                      (len(cands) == 1 and same_type == 1)
+            prob = False
+            if not accept and _plain(r["nom"]).strip() in ANONYMES and same_type <= 2:
+                # installation anonymisée : une seule société de production du bon type dans la commune
+                hint = PV_HINT if r["type"] == "PV" else BESS_HINT
+                typ = [c for c in cands if hint.search(_plain(c["nom"] + " " + c["sigle"]))
+                       and not NON_PV.search(_plain(c["nom"]))]
+                if len(typ) == 1:
+                    best, accept, prob = (0, typ[0]), True, True
             if not accept:
                 continue
             c = best[1]
@@ -195,9 +203,12 @@ def match(recs, by_commune, canon):
             else:
                 expl = (c["dirigeants_pm"][0] if c["dirigeants_pm"] else c["nom"]).strip()
             if expl:
-                r["expl"], r["expl_src"] = expl, "sirene"
+                r["expl"], r["expl_src"] = expl, "sirene_commune" if prob else "sirene"
                 n += 1
     return n
+
+
+ANONYMES = {"CONFIDENTIEL", "PRIVE", "PRIVEE", "NON COMMUNIQUE", "ANONYME"}
 
 
 # --------------------------------------------------------------------------- base SIRENE en bloc
@@ -468,9 +479,9 @@ def enrich_holdings(recs, cache: Path, canon, budget_s=1200, workers=6, depth=4)
             continue
         group = group or canon(r["societe"] or "")
         if group:
-            r["expl"], r["expl_src"] = group, "sirene"
+            r["expl"], r["expl_src"] = group, ("sirene_commune" if r.get("expl_src") == "sirene_commune" else "sirene")
             n += 1
-        elif chain and r.get("expl_src") in (None, "sirene"):
+        elif chain and r.get("expl_src") in (None, "sirene", "sirene_commune"):
             r["expl"], r["expl_src"] = chain[-1], "sirene"  # sommet de la chaîne connue
             n += 1
     pending = sum(1 for s in level if s not in cache_d)
