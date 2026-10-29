@@ -105,30 +105,48 @@ class Row:
 
 # --------------------------------------------------------------------------- sources
 
-def load_registre(path=None):
-    if path:
-        raw = Path(path).read_bytes()
-        source = f"fichier local {Path(path).name}"
-    else:
-        try:
-            print("Téléchargement du registre ODRÉ…", file=sys.stderr)
-            raw = fetch(ODRE_EXPORT)
-            source = "ODRÉ – odre.opendatasoft.com (" + ODRE_DATASET + ")"
-        except Exception as e:  # repli data.gouv.fr
-            print(f"  ODRÉ indisponible ({e}), repli sur data.gouv.fr…", file=sys.stderr)
-            meta = json.loads(fetch(DATAGOUV_API))
-            csvs = [r for r in meta.get("resources", []) if (r.get("format") or "").lower() == "csv"]
-            csvs.sort(key=lambda r: r.get("last_modified") or "", reverse=True)
-            if not csvs:
-                raise SystemExit("Aucune ressource CSV trouvée sur data.gouv.fr")
-            raw = fetch(csvs[0]["url"])
-            source = "data.gouv.fr – " + meta.get("title", "Registre national")
+MIN_LIGNES_REGISTRE = 100_000  # le registre complet compte ~140 000 lignes : en dessous, export tronqué
+
+
+def _parse_registre(raw):
     text = raw.decode("utf-8-sig", errors="replace")
     first = text.split("\n", 1)[0]
     delim = ";" if first.count(";") >= first.count(",") else ","
-    rows = [Row(r) for r in csv.DictReader(io.StringIO(text), delimiter=delim)]
-    print(f"  {len(rows)} lignes lues ({source})", file=sys.stderr)
-    return rows, source
+    return [Row(r) for r in csv.DictReader(io.StringIO(text), delimiter=delim)]
+
+
+def _registre_datagouv():
+    meta = json.loads(fetch(DATAGOUV_API))
+    csvs = [r for r in meta.get("resources", []) if (r.get("format") or "").lower() == "csv"]
+    csvs.sort(key=lambda r: r.get("last_modified") or "", reverse=True)
+    if not csvs:
+        raise RuntimeError("aucune ressource CSV sur data.gouv.fr")
+    return _parse_registre(fetch(csvs[0]["url"])), "data.gouv.fr – " + meta.get("title", "Registre national")
+
+
+def load_registre(path=None):
+    if path:
+        rows = _parse_registre(Path(path).read_bytes())
+        print(f"  {len(rows)} lignes lues (fichier local)", file=sys.stderr)
+        return rows, f"fichier local {Path(path).name}"
+    sources = [("ODRÉ", lambda: (_parse_registre(fetch(ODRE_EXPORT)),
+                                 "ODRÉ – odre.opendatasoft.com (" + ODRE_DATASET + ")")),
+               ("data.gouv.fr", _registre_datagouv),
+               ("ODRÉ (2e essai)", lambda: (_parse_registre(fetch(ODRE_EXPORT)),
+                                            "ODRÉ – odre.opendatasoft.com (" + ODRE_DATASET + ")"))]
+    for label, get in sources:
+        try:
+            print(f"Téléchargement du registre ({label})…", file=sys.stderr)
+            rows, source = get()
+            print(f"  {len(rows)} lignes lues", file=sys.stderr)
+            if len(rows) >= MIN_LIGNES_REGISTRE:
+                return rows, source
+            print(f"  export incomplet (< {MIN_LIGNES_REGISTRE} lignes), source suivante", file=sys.stderr)
+        except Exception as e:
+            print(f"  {label} indisponible ({e})", file=sys.stderr)
+    # aucune source complète : on arrête sans rien publier (les données en ligne restent intactes)
+    print("ÉCHEC : registre complet indisponible, données non mises à jour.", file=sys.stderr)
+    raise SystemExit(2)
 
 
 def load_communes(path=None):
@@ -522,6 +540,16 @@ def main():
         "fields": fields,
         "rows": [[p.get(f) for f in fields] for p in pts],
     }
+    prev = Path(a.out)
+    if prev.exists() and not a.registre:
+        try:
+            n_prev = json.loads(prev.read_text(encoding="utf-8"))["meta"]["n"]
+            if len(pts) < 0.8 * n_prev:
+                print(f"ÉCHEC : {len(pts)} installations contre {n_prev} précédemment (chute > 20 %), "
+                      "données non mises à jour.", file=sys.stderr)
+                raise SystemExit(3)
+        except (KeyError, ValueError):
+            pass
     Path(a.out).parent.mkdir(parents=True, exist_ok=True)
     Path(a.out).write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     if sans_coord:
