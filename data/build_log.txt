@@ -1,15 +1,17 @@
 Téléchargement du registre ODRÉ…
   141589 lignes lues (ODRÉ – odre.opendatasoft.com (registre-national-installation-production-stockage-electricite-agrege))
   35014 centroïdes de communes
-  Overpass : 29 tuiles, 2 à rafraîchir
-  Overpass tuile -21.45,55.15,-20.8,55.9 : échec (Overpass indisponible (HTTP Error 504: Gateway Timeout))
-  Overpass tuile -13.1,44.95,-12.55,45.35 : 35 objets
-  OSM : 13448 objets (1 tuiles rafraîchies, 1 jamais extraites)
-  OSM : 1251 installations rapprochées, 337 exploitants récupérés
+  Overpass : 29 tuiles, 1 à rafraîchir
+  Overpass tuile -21.45,55.15,-20.8,55.9 : 30 objets
+  OSM : 13478 objets (1 tuiles rafraîchies, 0 jamais extraites)
+  OSM : 1268 installations rapprochées, 343 exploitants récupérés
 SIRENE : établissements de production d'électricité (NAF 35.11Z)…
   téléchargement https://static.data.gouv.fr/resources/base-sirene-des-entreprises-et-de-leurs-etablissements-siren-siret/20261001-073823/stock-stocketablissement-parquet.parquet
   téléchargement https://static.data.gouv.fr/resources/base-sirene-des-entreprises-et-de-leurs-etablissements-siren-siret/20261001-073325/stock-stockunitelegale-parquet.parquet
-  SIRENE stock : 242110 établissements 35.11Z actifs dans 30366 communes
-  dirigeants : 0 SIREN interrogés en 0 s (0 échecs), 0 restants ; 925 exploitants précisés
-  SIRENE : {'mode': 'stock Parquet', 'societes_rattachees': 1145, 'exploitants': 1115, 'holdings': 925}
+  SIRENE stock : 242110 établissements 35.11Z actifs dans 30366 communes, 159694 sociétés de production en France
+  SIRENE national : 350 installations rattachées par le nom du site ou de la commune
+  dirigeants : 245 SIREN interrogés en 1318 s (0 échecs, 41 restants) ; 874 exploitants précisés
+  SIRENE : {'mode': 'stock Parquet', 'societes_rattachees': 1495, 'national': 350, 'exploitants': 1410, 'holdings': 874}
+  Wikidata indisponible (HTTP Error 502: Bad Gateway)
+  Wikidata : {'source': 'aucun', 'objets': 0, 'exploitants': 0, 'localisees': 0}
 OK : 3673 installations (14624.4 MW PV, 2250.6 MW BESS), 0 sans coordonnées, exclusions {'≤ seuil': 96479, 'agrégats < 36 kW': 33611}
