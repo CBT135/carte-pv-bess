@@ -48,8 +48,9 @@ def fetch(cache: Path):
     try:
         with urllib.request.urlopen(urllib.request.Request(URL, headers=UA), timeout=120) as r:
             raw = r.read()
-        text = raw.decode("utf-8-sig", errors="replace")
-        if "NOM_PROJET" not in text[:500]:
+        try:
+            text = raw.decode("utf-8-sig")
+        except UnicodeDecodeError:  # fichier en Windows-1252 (ou mixte)
             text = raw.decode("cp1252", errors="replace")
         cache.write_text(text, encoding="utf-8")
         src = "CRE"
