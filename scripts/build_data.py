@@ -205,7 +205,15 @@ OPERATEURS = [
     (r"\bOX2\b", "OX2"),
     (r"^CRYO\b", "CRYO"),
     # codifications de projets propres à un développeur (vérifiées sur les installations identifiées)
-    (r"^C\d{4}\s*-\s*(?:CS|MCT)\b", "Urbasolar"),
+    (r"(?:^|[\s_\-])C\d{4}\b", "Urbasolar"),          # codes projets Urbasolar (C1352, C4253…)
+    (r"\bTSAOS?\d|^PPE2\.\d_B\d+", "Technique Solaire"),  # codification Technique Solaire
+    (r"\bTQ ?\d", "TotalEnergies"),                     # « TQ » = Total Quadran
+    (r"\bSOLAIRE ?PARC\b", "ENGIE"),                    # « SolaireParc » = Solairedirect (ENGIE)
+    (r"\bSUN'?R\b", "Sun'R"),
+    (r"\bKRONOS\b", "Kronos Solar"),
+    (r"\bINNERGEX\b", "Innergex"),
+    (r"\bRESERVOIR SUN\b", "Reservoir Sun"),
+    (r"\bVALREA\b", "Valrea"),
     (r"^RS\d+$", "Reden Solar"),
     (r"^\d\d_\d{3}_", "EDF Renouvelables"),
     (r"\bZE ENERGY\b", "ZE Energy"),
