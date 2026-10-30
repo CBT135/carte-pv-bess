@@ -12,9 +12,9 @@ SIRENE : établissements de production d'électricité (NAF 35.11Z)…
   SIRENE : 390 / 510 sociétés candidates CRE retrouvées
   SIRENE stock : 242110 établissements 35.11Z actifs dans 30366 communes, 159694 sociétés de production en France
   SIRENE national : 284 installations rattachées par le nom du site ou de la commune
-  dirigeants : 0 SIREN interrogés en 0 s (0 échecs, 3 restants) ; 1522 exploitants précisés
-  SIRENE : {'mode': 'stock Parquet', 'societes_rattachees': 1892, 'national': 284, 'exploitants': 1716, 'holdings': 1522}
+  dirigeants : 2 SIREN interrogés en 0 s (0 échecs, 3 restants) ; 1518 exploitants précisés
+  SIRENE : {'mode': 'stock Parquet', 'societes_rattachees': 1892, 'national': 284, 'exploitants': 1710, 'holdings': 1518}
   Wikidata : 14 centrales solaires / stockage avec exploitant
   Wikidata : {'source': 'Wikidata', 'objets': 14, 'exploitants': 2, 'localisees': 1}
-  Déduction : 32 par les autres tranches du site, 7 par la codification du nom
+  Déduction : 32 par les autres tranches du site, 9 par la codification du nom
 OK : 3673 installations (14624.4 MW PV, 2250.6 MW BESS), 0 sans coordonnées, exclusions {'≤ seuil': 96479, 'agrégats < 36 kW': 33611}
