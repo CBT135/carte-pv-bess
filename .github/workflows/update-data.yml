@@ -3,7 +3,7 @@ name: Mise à jour des données
 on:
   workflow_dispatch:
   schedule:
-    - cron: "17 5 * * 1"   # chaque lundi, 5h17 UTC
+    - cron: "17 4 * * *"   # chaque jour, 4h17 UTC (5h17 ou 6h17 à Paris)
   push:
     branches: [main]
     paths:

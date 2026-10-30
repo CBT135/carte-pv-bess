@@ -35,7 +35,7 @@ Règles appliquées par `scripts/build_data.py` :
 1. Créer le dépôt GitHub et y pousser ces fichiers (branche `main`).
 2. **Settings → Pages** : *Deploy from a branch*, `main`, dossier `/ (root)`.
 3. **Settings → Actions → General → Workflow permissions** : *Read and write permissions*.
-4. **Actions → Mise à jour des données → Run workflow** : génère `data/installations.json` (≈ 1 min), puis automatiquement chaque lundi.
+4. **Actions → Mise à jour des données → Run workflow** : génère `data/installations.json` (≈ 1 min), puis automatiquement chaque jour.
 
 En local : `python scripts/build_data.py` puis `python -m http.server` et ouvrir http://localhost:8000.
 
