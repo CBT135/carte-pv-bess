@@ -69,6 +69,11 @@ select:focus,input:focus{outline:2px solid #18212b22;border-color:#9aa6b2}
 .leaflet-control-layers{font:13px Inter,system-ui,sans-serif;border-radius:10px!important;box-shadow:0 4px 16px #0f172a26!important;border:0!important}
 .leaflet-control-layers-base label{margin:2px 0}
 @media (max-width:760px){.leaflet-control-layers{font-size:12px}}
+.inst-pop .leaflet-popup-content-wrapper{border-radius:10px;box-shadow:0 6px 24px #0f172a2e;padding:0}
+.inst-pop .leaflet-popup-content{margin:10px 12px;font:13px/1.4 Inter,system-ui,sans-serif;color:var(--ink)}
+.inst-pop a.leaflet-popup-close-button{top:4px;right:4px;font-size:20px;color:#5d6b7a}
+.inst-pop .inst h3{padding-right:18px}
+.leaflet-container.has-pts .leaflet-interactive{cursor:pointer}
 .leaflet-tooltip.inst{border:0;border-radius:10px;box-shadow:0 6px 24px #0f172a2e;padding:10px 12px;font:13px/1.4 Inter,system-ui,sans-serif;color:var(--ink);min-width:220px;max-width:300px;white-space:normal}
 .inst h3{font-size:14px;margin:0 0 6px;line-height:1.25}
 .inst .tag{display:inline-block;font-size:11px;font-weight:600;border-radius:4px;padding:1px 6px;margin-bottom:6px;color:#fff}
@@ -398,16 +403,23 @@ function tooltipHtml(p){
   <div class="note">Position : ${p.loc_src === "manuel" ? "corrigée manuellement" + (p.pos_date ? " le " + fmtDate(p.pos_date) : "") : p.loc_src === "osm" ? "emprise OpenStreetMap" : p.loc_src === "wikidata" ? "Wikidata" : "centroïde de la commune"}</div>`;
 }
 
+const infoPopup = L.popup({className:"inst-pop", maxWidth:320, minWidth:230, offset:[0,-4], autoPanPadding:[20,20], closeButton:true});
+function openInfo(m){
+  infoPopup.setLatLng(m.getLatLng()).setContent(`<div class="inst">${tooltipHtml(m._p)}</div>`).openOn(map);
+}
 function build(){
   markers = DATA.map(p => {
     const c = COLORS[p.type];
     const m = L.circleMarker([p.lat,p.lon],{renderer, radius:baseR(p.mw)*zoomK(),
       color:"#ffffff", weight:.8, fillColor:c.fill, fillOpacity:.72, opacity:.9});
     if (HOVER && !NARROW){
-      m.bindTooltip(() => tooltipHtml(p), {className:"inst", direction:"top", offset:[0,-4], sticky:false});
+      // fiche au clic uniquement (pas au survol) ; le survol ne fait que surligner le point
       m.on("mouseover", () => m.setStyle({color:c.stroke, weight:2}));
       m.on("mouseout",  () => m.setStyle({color:"#ffffff", weight:.8}));
-      m.on("click", () => m.openTooltip());
+      m.on("click", e => {
+        if ($("edToggle") && $("edToggle").classList.contains("on")) return;  // mode édition : pas de fiche
+        L.DomEvent.stop(e); openInfo(m);
+      });
     } else {
       m.on("click", e => { L.DomEvent.stop(e); showCard(m); });
     }
@@ -542,7 +554,7 @@ $("cRes").addEventListener("click", e => {
   const li = e.target.closest("li[data-i]"); if (!li) return;
   const m = markers[+li.dataset.i]; if (!m) return;
   map.setView(m.getLatLng(), Math.max(map.getZoom(), 12));
-  if (HOVER && !NARROW) setTimeout(() => m.openTooltip(), 300); else showCard(m);
+  if (HOVER && !NARROW) setTimeout(() => openInfo(m), 300); else showCard(m);
 });
 function setCommune(c){
   CSEL = c ? {code:c.code, nom:c.nom, dep:c.codeDepartement || "", lat:c.centre.coordinates[1], lon:c.centre.coordinates[0]} : null;

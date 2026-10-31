@@ -175,7 +175,7 @@ const EDIT = (() => {
       m.on("mousedown", e => {
         if (!on) return;
         L.DomEvent.stop(e);
-        drag = m; dragStart = e.containerPoint; dragMoved = false; m.closeTooltip();
+        drag = m; dragStart = e.containerPoint; dragMoved = false; map.closePopup();
         map.dragging.disable();
       });
       m.on("click", e => { if (on) L.DomEvent.stop(e); });
