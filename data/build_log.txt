@@ -3,18 +3,18 @@ Téléchargement du registre (ODRÉ)…
   35014 centroïdes de communes
   Overpass : 29 tuiles, 0 à rafraîchir
   OSM : 13478 objets (0 tuiles rafraîchies, 0 jamais extraites)
-  OSM : 1268 installations rapprochées, 343 exploitants récupérés
+  OSM : 1269 installations rapprochées, 344 exploitants récupérés
   CRE : 8663 dossiers PV / stockage retenus (CRE)
-  CRE : 586 installations rattachées à un dossier lauréat
+  CRE : 578 installations rattachées à un dossier lauréat
 SIRENE : établissements de production d'électricité (NAF 35.11Z)…
   téléchargement https://static.data.gouv.fr/resources/base-sirene-des-entreprises-et-de-leurs-etablissements-siren-siret/20261001-073823/stock-stocketablissement-parquet.parquet
   téléchargement https://static.data.gouv.fr/resources/base-sirene-des-entreprises-et-de-leurs-etablissements-siren-siret/20261101-082130/stock-stockunitelegale-parquet.parquet
-  SIRENE : 388 / 510 sociétés candidates CRE retrouvées
+  SIRENE : 382 / 504 sociétés candidates CRE retrouvées
   SIRENE stock : 242106 établissements 35.11Z actifs dans 30366 communes, 161149 sociétés de production en France
-  SIRENE national : 284 installations rattachées par le nom du site ou de la commune
-  dirigeants : 0 SIREN interrogés en 0 s (0 échecs, 3 restants) ; 1516 exploitants précisés
-  SIRENE : {'mode': 'stock Parquet', 'societes_rattachees': 1890, 'national': 284, 'exploitants': 1708, 'holdings': 1516}
+  SIRENE national : 286 installations rattachées par le nom du site ou de la commune
+  dirigeants : 3 SIREN interrogés en 0 s (0 échecs, 3 restants) ; 1508 exploitants précisés
+  SIRENE : {'mode': 'stock Parquet', 'societes_rattachees': 1873, 'national': 286, 'exploitants': 1690, 'holdings': 1508}
   Wikidata : 14 centrales solaires / stockage avec exploitant
   Wikidata : {'source': 'Wikidata', 'objets': 14, 'exploitants': 2, 'localisees': 1}
-  Déduction : 32 par les autres tranches du site, 9 par la codification du nom
+  Déduction : 30 par les autres tranches du site, 9 par la codification du nom
 OK : 3673 installations (14624.4 MW PV, 2250.6 MW BESS), 0 sans coordonnées, exclusions {'≤ seuil': 96479, 'agrégats < 36 kW': 33611}
