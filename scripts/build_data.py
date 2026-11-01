@@ -220,7 +220,7 @@ OPERATEURS = [
     (r"\bERG\b", "ERG"),
     (r"\bSEOLIS\b", "Séolis"),
     (r"\bJUWI\b", "Juwi"),
-    (r"\bCVE\b", "CVE"),
+    (r"\bCVE\b|^CAP VERT (?:ENERGIE|SOLARENERGIE)\b", "CVE"),
     (r"\bELEMENTS\b", "Elements"),
     (r"\bLANGA\b", "Langa"),
     (r"\bIEL\b", "IEL"),

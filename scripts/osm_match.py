@@ -49,7 +49,10 @@ def tiles():
 STOP = set("""centrale centrales solaire solaires photovoltaique photovoltaiques pv parc ferme champ champs
 de du des la le les l d et en sur sas sarl sa snc sci centr adp stockage stock batterie batteries
 bess energie energies station site projet poste installation installations n no n0 nord sud est ouest
-au aux ombrieres ombriere toiture toitures sol grand grande petit petite""".split())
+au aux ombrieres ombriere toiture toitures sol grand grande petit petite
+exploitation exploitations production prod societe holding groupe invest investissement investissements
+solar sun power green energy energia renouvelable renouvelables environnement developpement
+batiment batiments parking hangar serre serres agri agricole france francaise sasu eurl""".split())
 
 
 def _n(s):
