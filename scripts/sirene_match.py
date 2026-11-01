@@ -16,7 +16,7 @@ import time
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 import urllib.parse
 import urllib.request
-from collections import defaultdict
+from collections import Counter, defaultdict
 from pathlib import Path
 
 from osm_match import tokens
@@ -475,6 +475,7 @@ def enrich_holdings(recs, cache: Path, canon, budget_s=1200, workers=6, depth=4)
                 break
             s = hs[0].get("siren")
         r["chaine"] = " → ".join([r["societe"] or ""] + chain) if chain else None
+        r["_top_siren"] = s if chain and s else r.get("siren")
         if r.get("expl_src") == "fichier":
             continue
         group = group or canon(r["societe"] or "")
@@ -487,4 +488,110 @@ def enrich_holdings(recs, cache: Path, canon, budget_s=1200, workers=6, depth=4)
     pending = sum(1 for s in level if s not in cache_d)
     print(f"  dirigeants : {ok} SIREN interrogés en {int(time.time() - t0)} s ({fails} échecs, "
           f"{pending} restants) ; {n} exploitants précisés", file=sys.stderr)
+    return n
+
+
+# --------------------------------------------------------------------------- dirigeant personne physique
+def _persons(e):
+    """Présidents / gérants personnes physiques (nom, premier prénom, date de naissance AAAA-MM)."""
+    out = []
+    for d in e.get("dirigeants") or []:
+        if d.get("type_dirigeant") != "personne physique":
+            continue
+        q = d.get("qualite") or ""
+        if ROLE_KO.search(q) or (q and not ROLE_OK.search(q)):
+            continue
+        nom = (d.get("nom") or "").strip()
+        pre = (d.get("prenoms") or "").strip().split(" ")[0].split(",")[0]
+        ddn = (d.get("date_de_naissance") or "")[:7]
+        if nom and pre and re.match(r"^\d{4}-\d{2}$", ddn):   # sans date de naissance : risque d'homonymie
+            out.append((nom, pre, ddn))
+    return out[:3]
+
+
+def enrich_by_person(recs, cache: Path, canon, budget_s=900, workers=4):
+    """Pour les installations dont la chaîne d'actionnaires n'aboutit à aucun groupe connu :
+    on prend le président / gérant personne physique de la société de projet (ou du sommet de la chaîne),
+    on liste les autres sociétés qu'il dirige (même nom, prénom et mois de naissance) et, si elles
+    relèvent majoritairement d'un même groupe connu, on lui rattache l'installation.
+    Ex. CENTRALE SOLAIRE DES TERRES ROUGES → son président dirige aussi VALECO SOLAR → Valeco.
+    Le cache (data/sirene_dirigeants_pp.json) ne conserve que le groupe trouvé par SIREN, aucun nom de personne."""
+    raw = json.loads(cache.read_text(encoding="utf-8")) if cache.exists() else {}
+    cache_d = raw.get("siren", {}) if raw.get("v") == 1 else {}
+    today = time.strftime("%Y-%m-%d")
+    cutoff = time.strftime("%Y-%m-%d", time.gmtime(time.time() - MAX_AGE_DAYS * 86400))
+
+    def top(r):
+        return r.get("_top_siren") or r.get("siren")
+
+    targets = [r for r in recs if r.get("siren") and r.get("expl_src") not in ("fichier",)
+               and not canon(r.get("expl") or "")]
+    sirens = sorted({top(r) for r in targets if top(r)})
+    todo = [s for s in sirens if s not in cache_d or cache_d[s]["d"] < cutoff]
+    t0, ok, fails = time.time(), 0, 0
+
+    def one(siren):
+        j = _get({"q": siren, "per_page": 1})
+        persons = []
+        for e in j.get("results", []):
+            if e.get("siren") == siren:
+                persons = _persons(e)
+        votes = Counter()
+        for nom, pre, ddn in persons:
+            y, m = ddn.split("-")
+            for page in (1, 2):
+                jj = _get({"nom_personne": nom, "prenoms_personne": pre, "type_personne": "dirigeant",
+                           "date_naissance_personne_min": f"{y}-{m}-01", "date_naissance_personne_max": f"{y}-{m}-31",
+                           "per_page": 25, "page": page})
+                for e in jj.get("results", []):
+                    if e.get("siren") == siren:
+                        continue
+                    names = [e.get("nom_raison_sociale") or e.get("nom_complet") or ""] + \
+                            [h["nom"] for h in _holdings(e)]
+                    g = next((canon(n) for n in names if n and canon(n)), None)
+                    if g:
+                        votes[g] += 1
+                if page >= (jj.get("total_pages") or 1):
+                    break
+        if not votes:
+            return None
+        g, n = votes.most_common(1)[0]
+        return g if n >= 1 and n / sum(votes.values()) >= 0.6 else None
+
+    with ThreadPoolExecutor(workers) as ex:
+        futs, it = {}, iter(todo)
+
+        def submit():
+            if time.time() - t0 > budget_s or fails > 30:
+                return
+            s = next(it, None)
+            if s:
+                futs[ex.submit(one, s)] = s
+        for _ in range(workers * 2):
+            submit()
+        while futs:
+            done, _ = wait(futs, return_when=FIRST_COMPLETED)
+            for f in done:
+                s = futs.pop(f)
+                try:
+                    cache_d[s] = {"d": today, "g": f.result()}
+                    ok += 1
+                except Exception as e:
+                    fails += 1
+                    if fails <= 3:
+                        print(f"  dirigeant PP {s} : {e}", file=sys.stderr)
+                submit()
+    if ok:
+        cache.write_text(json.dumps({"v": 1, "siren": cache_d}, ensure_ascii=False, separators=(",", ":")),
+                         encoding="utf-8")
+    n = 0
+    for r in targets:
+        g = (cache_d.get(top(r)) or {}).get("g")
+        if g:
+            r["expl"], r["expl_src"] = g, "dirigeant"
+            r["chaine"] = (r.get("chaine") or r.get("societe") or "") + " → (président commun) → " + g
+            n += 1
+    rest = sum(1 for s in sirens if s not in cache_d)
+    print(f"  dirigeants personnes physiques : {ok} SIREN examinés en {int(time.time() - t0)} s "
+          f"({fails} échecs, {rest} restants) ; {n} installations rattachées à un groupe", file=sys.stderr)
     return n

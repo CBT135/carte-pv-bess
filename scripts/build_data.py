@@ -506,9 +506,10 @@ def main():
         cre_stats["siren"] = n_cre
         n_nat = sirene_match.national_match(pts, national, canon, COMMUNES_HOMONYMES, norm) if national else 0
         n_h = sirene_match.enrich_holdings(pts, DATA / "sirene_dirigeants.json", canon)
+        n_pp = sirene_match.enrich_by_person(pts, DATA / "sirene_dirigeants_pp.json", canon)
         sirene_stats = {"mode": mode, "societes_rattachees": sum(1 for p in pts if p["siren"]),
                         "national": n_nat, "exploitants": sum(1 for p in pts if p["expl_src"] == "sirene"),
-                        "holdings": n_h}
+                        "holdings": n_h, "dirigeant_commun": n_pp}
         print(f"  SIRENE : {sirene_stats}", file=sys.stderr)
 
     wd_stats = {}
@@ -534,6 +535,20 @@ def main():
             g = canon(p["expl"])
             if g:
                 p["expl"] = g
+    # même exploitant écrit différemment (casse, accents, espaces : « Boreas » / « BOREAS ») → libellé unique
+    variants = defaultdict(Counter)
+    for p in pts:
+        if p["expl"]:
+            variants[norm(p["expl"])][p["expl"]] += 1
+    canon_labels = {lab for _, lab in OPERATEURS} | set(GROUPES[0].values())
+    for p in pts:
+        if p["expl"]:
+            v = variants[norm(p["expl"])]
+            if len(v) > 1:
+                p["expl"] = next((x for x in v if x in canon_labels), None) or \
+                    max(v, key=lambda x: (v[x], x != x.upper(), x))
+    for p in pts:
+        p.pop("_top_siren", None)
     write_holdings_a_classer(pts)
     jitter([p for p in pts if p["loc_src"] == "commune"])
     pts.sort(key=lambda p: -p["mw"])
