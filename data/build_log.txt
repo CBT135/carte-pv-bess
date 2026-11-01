@@ -8,12 +8,12 @@ Téléchargement du registre (ODRÉ)…
   CRE : 586 installations rattachées à un dossier lauréat
 SIRENE : établissements de production d'électricité (NAF 35.11Z)…
   téléchargement https://static.data.gouv.fr/resources/base-sirene-des-entreprises-et-de-leurs-etablissements-siren-siret/20261001-073823/stock-stocketablissement-parquet.parquet
-  téléchargement https://static.data.gouv.fr/resources/base-sirene-des-entreprises-et-de-leurs-etablissements-siren-siret/20261001-073325/stock-stockunitelegale-parquet.parquet
-  SIRENE : 390 / 510 sociétés candidates CRE retrouvées
-  SIRENE stock : 242110 établissements 35.11Z actifs dans 30366 communes, 159694 sociétés de production en France
+  téléchargement https://static.data.gouv.fr/resources/base-sirene-des-entreprises-et-de-leurs-etablissements-siren-siret/20261101-082130/stock-stockunitelegale-parquet.parquet
+  SIRENE : 388 / 510 sociétés candidates CRE retrouvées
+  SIRENE stock : 242106 établissements 35.11Z actifs dans 30366 communes, 161149 sociétés de production en France
   SIRENE national : 284 installations rattachées par le nom du site ou de la commune
-  dirigeants : 0 SIREN interrogés en 0 s (0 échecs, 3 restants) ; 1518 exploitants précisés
-  SIRENE : {'mode': 'stock Parquet', 'societes_rattachees': 1892, 'national': 284, 'exploitants': 1710, 'holdings': 1518}
+  dirigeants : 0 SIREN interrogés en 0 s (0 échecs, 3 restants) ; 1516 exploitants précisés
+  SIRENE : {'mode': 'stock Parquet', 'societes_rattachees': 1890, 'national': 284, 'exploitants': 1708, 'holdings': 1516}
   Wikidata : 14 centrales solaires / stockage avec exploitant
   Wikidata : {'source': 'Wikidata', 'objets': 14, 'exploitants': 2, 'localisees': 1}
   Déduction : 32 par les autres tranches du site, 9 par la codification du nom
