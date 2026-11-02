@@ -1,0 +1,74 @@
+{
+"v": 1,
+"noms": {
+"AG CONSULTANT": {
+"d": "2026-11-02",
+"lei": "894500B7K6JG7HEPH216",
+"nom": "AG CONSULTANT",
+"pays": "FR"
+},
+"CLEARPARTNERS 1. VERWALTUNGS GMBH": {
+"d": "2026-11-02",
+"lei": null
+},
+"CONQUEST ASSET MANAGEMENT S.À.R.L. (RCS LUXEMBOURG B154493)": {
+"d": "2026-11-02",
+"lei": null
+},
+"ENCAVIS RENEWABLES BETEILIGUNGS GMBH": {
+"d": "2026-11-02",
+"lei": null
+},
+"HASPA GREEN VERWALTUNG GMBH": {
+"d": "2026-11-02",
+"lei": null
+},
+"KRANNICH UTILITY GMBH": {
+"d": "2026-11-02",
+"lei": null
+},
+"L.P. INVESTISSEMENTS": {
+"d": "2026-11-02",
+"lei": "894500DIUUQCO8B5VY43",
+"nom": "L.P. INVESTISSEMENTS",
+"pays": "FR"
+},
+"LEONIDAS ASSOCIATES IV GMBH & CO. KG B": {
+"d": "2026-11-02",
+"lei": null
+},
+"LEONIDAS FRANCE IX GMBH & CO.KG": {
+"d": "2026-11-02",
+"lei": null
+},
+"OBTON SOLENERGI ALTENBERG MANAGEMENT GMBH": {
+"d": "2026-11-02",
+"lei": null
+},
+"SOLVENT IPP VERWALTUNGS GMBH - SOCIETE DE DROIT ETRANGER": {
+"d": "2026-11-02",
+"lei": null
+},
+"SOLVENT VERWALTUNGS GMBH": {
+"d": "2026-11-02",
+"lei": null
+},
+"TEVA BETEILIGUNGS GMBH": {
+"d": "2026-11-02",
+"lei": null
+},
+"TEVA BETEILIGUNGSGESELLSCHAFT - MBH (IMMATRICULATION REGISTRE DE MUNICH N°HRB 175265)": {
+"d": "2026-11-02",
+"lei": null
+},
+"VOLKSWIND GMBH": {
+"d": "2026-11-02",
+"lei": "529900IY6H0KWYSTFN41",
+"nom": "Volkswind GmbH",
+"pays": "DE",
+"parent": "Axpo Holding AG",
+"parent_pays": "CH",
+"parent_rel": "ultimate-parent"
+}
+}
+}
