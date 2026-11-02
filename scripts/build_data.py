@@ -30,6 +30,7 @@ import sirene_match  # noqa: E402
 import wikidata  # noqa: E402
 import cre  # noqa: E402
 import infer  # noqa: E402
+import foreign  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "data"
@@ -211,6 +212,21 @@ OPERATEURS = [
     (r"\bSOLAIRE ?PARC\b", "ENGIE"),                    # « SolaireParc » = Solairedirect (ENGIE)
     (r"\bSUN'?R\b", "Sun'R"),
     (r"\bKRONOS\b", "Kronos Solar"),
+    (r"\bKRANNICH\b", "Krannich"),
+    (r"\bLEONIDAS\b", "Leonidas Associates"),
+    (r"\bSUNROCK\b", "Sunrock"),
+    (r"\bSOLVENT\b", "Solvent"),
+    (r"\bGP ?JOULE\b", "GP Joule"),
+    (r"\bVOLKSWIND\b", "Volkswind"),
+    (r"\bOBTON\b", "Obton"),
+    (r"\bVGP\b", "VGP"),
+    (r"\bCONQUEST ASSET\b", "Conquest Asset Management"),
+    (r"\bOSTWIND\b", "Ostwind"),
+    (r"\bSTATKRAFT\b", "Statkraft"),
+    (r"\bRWE\b", "RWE"),
+    (r"\bEDP ?R\b|\bEDP RENEWABLES\b", "EDP Renewables"),
+    (r"\bENEL\b", "Enel"),
+    (r"\bALPIQ\b", "Alpiq"),
     (r"\bINNERGEX\b", "Innergex"),
     (r"\bRESERVOIR SUN\b", "Reservoir Sun"),
     (r"\bVALREA\b", "Valrea"),
@@ -270,6 +286,14 @@ def load_overrides():
 
 
 GROUPES = ({}, [])
+# pays du siège des groupes étrangers reconnus par leur nom
+PAYS_GROUPE = {"Encavis": "DE", "BayWa r.e.": "DE", "Enerparc": "DE", "Kronos Solar": "DE", "wpd": "DE",
+               "ABO Energy": "DE", "Juwi": "DE", "Ostwind": "DE", "Volkswind": "DE", "GP Joule": "DE",
+               "Krannich": "DE", "Solvent": "DE", "Leonidas Associates": "DE", "RWE": "DE",
+               "Lightsource bp": "GB", "Harmony Energy": "GB", "Iberdrola": "ES", "ERG": "IT", "Enel": "IT",
+               "Innergex": "CA", "Boralex": "CA", "TagEnergy": "CH", "Alpiq": "CH", "OX2": "SE",
+               "Trina Solar": "CN", "Obton": "DK", "VGP": "BE", "Sunrock": "NL", "Statkraft": "NO",
+               "EDP Renewables": "PT", "Conquest Asset Management": "LU"}
 COMMUNES_HOMONYMES = set()  # noms de communes portés par plusieurs communes (ambigus pour la recherche par nom)  # data/groupes.csv : holding / société → groupe (prioritaire)
 
 
@@ -464,6 +488,7 @@ def main():
         rec["loc_src"] = "commune"
         rec["osm"] = None
         rec["siren"] = rec["societe"] = rec["chaine"] = rec["wikidata"] = rec["ao"] = rec["candidat"] = None
+        rec["pays_expl"] = None
         pts.append(rec)
 
     osm_stats = {}
@@ -512,6 +537,11 @@ def main():
                         "holdings": n_h, "dirigeant_commun": n_pp}
         print(f"  SIRENE : {sirene_stats}", file=sys.stderr)
 
+    print("Exploitants étrangers (GLEIF)…", file=sys.stderr)
+    try:
+        foreign.enrich(pts, DATA / "gleif_cache.json", canon)
+    except Exception as e:
+        print(f"  GLEIF : étape ignorée ({e})", file=sys.stderr)
     wd_stats = {}
     if not a.no_osm:
         wd, wd_src = wikidata.fetch(DATA / "wikidata_plants.json")
@@ -549,12 +579,14 @@ def main():
                     max(v, key=lambda x: (v[x], x != x.upper(), x))
     for p in pts:
         p.pop("_top_siren", None)
+        if p["expl"] and not p.get("pays_expl") and PAYS_GROUPE.get(p["expl"]):
+            p["pays_expl"] = PAYS_GROUPE[p["expl"]]
     write_holdings_a_classer(pts)
     jitter([p for p in pts if p["loc_src"] == "commune"])
     pts.sort(key=lambda p: -p["mw"])
 
     fields = ["nom", "type", "techno", "mw", "mw_charge", "mes", "mes_src", "expl", "expl_src",
-              "commune", "insee", "dep", "region", "grd", "tension", "poste", "eic", "lat", "lon", "loc_src", "osm", "siren", "societe", "chaine", "wikidata", "ao", "candidat"]
+              "commune", "insee", "dep", "region", "grd", "tension", "poste", "eic", "lat", "lon", "loc_src", "osm", "siren", "societe", "chaine", "wikidata", "ao", "candidat", "pays_expl"]
     out = {
         "meta": {
             "source": source,

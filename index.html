@@ -382,11 +382,18 @@ function drawSizes(){
 let DATA = [], markers = [], META = {};
 
 const EXPL_SRC = {nom:"déduit du nom", osm:"OpenStreetMap", sirene:"via SIRENE", wikidata:"Wikidata", cre:"candidat appel d'offres CRE", fichier:"renseigné manuellement ou recherche documentaire", site:"déduit des autres tranches du site", motif:"déduit de la codification du nom", sirene_commune:"probable : seule société de production de la commune", dirigeant:"même président que des sociétés du groupe"};
+const PAYS = {DE:"Allemagne",GB:"Royaume-Uni",NL:"Pays-Bas",LU:"Luxembourg",BE:"Belgique",DK:"Danemark",ES:"Espagne",
+  IT:"Italie",CH:"Suisse",AT:"Autriche",SE:"Suède",NO:"Norvège",FI:"Finlande",IE:"Irlande",US:"États-Unis",CA:"Canada",
+  PT:"Portugal",JP:"Japon",CN:"Chine",AU:"Australie",IL:"Israël",SG:"Singapour",KR:"Corée du Sud",AE:"Émirats arabes unis",
+  QA:"Qatar",MC:"Monaco",GG:"Guernesey",JE:"Jersey",KY:"Îles Caïmans",BM:"Bermudes",PL:"Pologne"};
+const flag = c => c && /^[A-Z]{2}$/.test(c) ? String.fromCodePoint(...[...c].map(x => 0x1F1A5 + x.charCodeAt(0))) : "";
+const paysLabel = c => c ? `${flag(c)} ${PAYS[c] || c}` : "";
 function tooltipHtml(p){
   const c = COLORS[p.type];
   const expl = p.expl
     ? esc(p.expl) + (EXPL_SRC[p.expl_src] ? ` <span style="color:#8a96a3">(${EXPL_SRC[p.expl_src]})</span>` : "")
     : '<span style="color:#8a96a3">non publié au registre</span>';
+  const paysRow = p.expl && p.pays_expl ? `<tr><td>Siège</td><td>${paysLabel(p.pays_expl)}</td></tr>` : "";
   const charge = p.type === "BESS" && p.mw_charge ? ` · charge ${fmt(p.mw_charge,2)} MW` : "";
   return `<span class="tag" style="background:${c.fill}">${c.label}${p.techno && p.type==="BESS" && !/batterie/i.test(p.techno) ? " – "+esc(p.techno):""}</span>
   <h3>${esc(p.nom)}</h3>
@@ -394,6 +401,7 @@ function tooltipHtml(p){
     <tr><td>Puissance</td><td><b>${fmt(p.mw,2)} MW</b>${charge}</td></tr>
     <tr><td>Mise en service</td><td>${fmtDate(p.mes)}${p.mes_src==="raccordement" ? " (date de raccordement)" : ""}</td></tr>
     <tr><td>Exploitant</td><td>${expl}</td></tr>
+    ${paysRow}
     ${p.societe ? `<tr><td>Société</td><td>${esc(p.societe)}<br><span style="color:#8a96a3">SIREN ${esc(p.siren)}</span></td></tr>` : ""}
     ${p.ao ? `<tr><td>Appel d'offres</td><td>CRE ${esc(p.ao)}<br><span style="color:#8a96a3">candidat ${esc(p.candidat)}</span></td></tr>` : ""}
     ${p.chaine && p.chaine.includes("→") ? `<tr><td>Actionnariat</td><td style="font-size:12px">${esc(p.chaine.split(" → ").slice(1).join(" → "))}</td></tr>` : ""}
@@ -490,7 +498,7 @@ function test(p){
   if (F.y1 !== "" && (y == null || y < +F.y1)) return false;
   if (F.y2 !== "" && (y == null || y > +F.y2)) return false;
   if (F.q){ const q = norm(F.q);
-    if (![p.nom,p.commune,p.dep,p.insee,p.expl,p.poste,p.societe,p.siren,p.candidat].some(v => norm(v).includes(q))) return false; }
+    if (![p.nom,p.commune,p.dep,p.insee,p.expl,p.poste,p.societe,p.siren,p.candidat,PAYS[p.pays_expl],p.chaine].some(v => norm(v).includes(q))) return false; }
   return true;
 }
 let shown = [];
@@ -671,7 +679,7 @@ $("explSheet").addEventListener("click", e => { if (e.target.id === "explSheet")
 document.addEventListener("keydown", e => { if (e.key === "Escape"){ closeExplSheet(false); hideCard(); } });
 
 function exportCsv(){
-  const cols = ["nom","type","techno","mw","mw_charge","mes","mes_src","expl","expl_src","commune","insee","dep","region","grd","tension","poste","eic","siren","societe","loc_src","lat","lon"];
+  const cols = ["nom","type","techno","mw","mw_charge","mes","mes_src","expl","expl_src","commune","insee","dep","region","grd","tension","poste","eic","siren","societe","pays_expl","loc_src","lat","lon"];
   if (CSEL){ cols.unshift("distance_km"); shown.forEach(m => m._p.distance_km = Math.round(m._p._d*10)/10); }
   const q = v => { const s = v == null ? "" : String(v); return /[;"\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s; };
   const lines = [cols.join(";")].concat(shown.map(m => cols.map(c => {
