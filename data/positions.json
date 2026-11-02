@@ -481,5 +481,12 @@
   "date": "2026-10-29",
   "nom": "PARC PV ENERGIE DU PARTAGE 15",
   "insee": "03031"
+ },
+ "17W000002500064K": {
+  "lat": 45.864374,
+  "lon": 0.113082,
+  "date": "2026-11-02",
+  "nom": "MESEA VILLOGNON 2",
+  "insee": "16414"
  }
 }
