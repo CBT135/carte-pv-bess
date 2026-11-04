@@ -10,24 +10,11 @@ SIRENE : établissements de production d'électricité (NAF 35.11Z)…
   téléchargement https://static.data.gouv.fr/resources/base-sirene-des-entreprises-et-de-leurs-etablissements-siren-siret/20261103-103713/stock-stocketablissementlienssuccession-parquet.parquet
   téléchargement https://static.data.gouv.fr/resources/base-sirene-des-entreprises-et-de-leurs-etablissements-siren-siret/20261103-095402/stock-stockunitelegale-parquet.parquet
   stock SIRENE indisponible (Binder Error: Column "siren" does not exist on left side of join!) : repli sur l'API par commune
-  SIRENE : 2381 communes, 2100 à interroger
-  SIRENE 17187 : API recherche-entreprises indisponible (HTTP Error 429: Too Many Requests)
-  SIRENE : 200 communes (106 s)
-  SIRENE : 400 communes (182 s)
-  SIRENE 2A247 : API recherche-entreprises indisponible (HTTP Error 429: Too Many Requests)
-  SIRENE 30047 : API recherche-entreprises indisponible (HTTP Error 429: Too Many Requests)
-  SIRENE : 600 communes (286 s)
-  SIRENE : 800 communes (402 s)
-  SIRENE : 1000 communes (502 s)
-  SIRENE : 1200 communes (610 s)
-  SIRENE : 1400 communes (665 s)
-  SIRENE : 1600 communes (738 s)
-  SIRENE : 1800 communes (795 s)
-  SIRENE : 2000 communes (883 s)
-  SIRENE : 2093 communes interrogées en 928 s, 7 échecs, 7 encore jamais interrogées (prochaine exécution)
-  dirigeants : 64 SIREN interrogés en 25 s (0 échecs, 2 restants) ; 1118 exploitants précisés
-  dirigeants personnes physiques : 27 SIREN examinés en 27 s (0 échecs, 0 restants) ; 43 installations rattachées à un groupe
-  SIRENE : {'mode': 'API', 'societes_rattachees': 1301, 'national': 0, 'exploitants': 1097, 'holdings': 1118, 'dirigeant_commun': 43}
+  SIRENE : 2381 communes, 7 à interroger
+  SIRENE : 7 communes interrogées en 22 s, 0 échecs, 0 encore jamais interrogées (prochaine exécution)
+  dirigeants : 0 SIREN interrogés en 0 s (0 échecs, 2 restants) ; 1121 exploitants précisés
+  dirigeants personnes physiques : 0 SIREN examinés en 0 s (0 échecs, 0 restants) ; 43 installations rattachées à un groupe
+  SIRENE : {'mode': 'API', 'societes_rattachees': 1306, 'national': 0, 'exploitants': 1102, 'holdings': 1121, 'dirigeant_commun': 43}
 Exploitants étrangers (GLEIF)…
   GLEIF : 9 sociétés étrangères en sommet de chaîne, 0 interrogées (0 restantes) ; 4 installations à exploitant étranger, 0 rattachées à leur maison mère
   Wikidata : 14 centrales solaires / stockage avec exploitant
