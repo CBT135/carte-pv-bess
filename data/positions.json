@@ -286,6 +286,13 @@
   "nom": "CVE SOLAR SERVICE EXPLOITATION",
   "insee": "51351"
  },
+ "17W0000013451063": {
+  "lat": 44.115429,
+  "lon": 1.394641,
+  "date": "2026-11-06",
+  "nom": "FRS01181-Multi-Albias",
+  "insee": "82002"
+ },
  "17W000001351469I": {
   "lat": 43.391951,
   "lon": 0.15162,
