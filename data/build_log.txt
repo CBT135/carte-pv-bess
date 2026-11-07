@@ -17,7 +17,7 @@ SIRENE : établissements de production d'électricité (NAF 35.11Z)…
   SIRENE : {'mode': 'stock Parquet', 'societes_rattachees': 1871, 'national': 286, 'exploitants': 1623, 'holdings': 1511, 'dirigeant_commun': 79}
 Exploitants étrangers (GLEIF)…
   GLEIF : 15 sociétés étrangères en sommet de chaîne, 0 interrogées (0 restantes) ; 3 installations à exploitant étranger, 0 rattachées à leur maison mère
-  Wikidata indisponible (HTTP Error 429: Too Many Requests)
-  Wikidata : {'source': 'cache', 'objets': 14, 'exploitants': 2, 'localisees': 1}
-  Déduction : 30 par les autres tranches du site, 12 par la codification du nom
+  Wikidata : 14 centrales solaires / stockage avec exploitant
+  Wikidata : {'source': 'Wikidata', 'objets': 14, 'exploitants': 2, 'localisees': 1}
+  Déduction : 30 par les autres tranches du site, 14 par la codification du nom
 OK : 3673 installations (14624.4 MW PV, 2250.6 MW BESS), 0 sans coordonnées, exclusions {'≤ seuil': 96479, 'agrégats < 36 kW': 33611}
