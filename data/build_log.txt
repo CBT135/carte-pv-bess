@@ -1,23 +1,23 @@
 Téléchargement du registre (ODRÉ)…
-  141589 lignes lues
+  143712 lignes lues
   35014 centroïdes de communes
   Overpass : 29 tuiles, 0 à rafraîchir
   OSM : 13478 objets (0 tuiles rafraîchies, 0 jamais extraites)
   OSM : 1269 installations rapprochées, 344 exploitants récupérés
   CRE : 8663 dossiers PV / stockage retenus (CRE)
-  CRE : 578 installations rattachées à un dossier lauréat
+  CRE : 588 installations rattachées à un dossier lauréat
 SIRENE : établissements de production d'électricité (NAF 35.11Z)…
   téléchargement https://static.data.gouv.fr/resources/base-sirene-des-entreprises-et-de-leurs-etablissements-siren-siret/20261103-101714/stock-stocketablissement-parquet.parquet
   téléchargement https://static.data.gouv.fr/resources/base-sirene-des-entreprises-et-de-leurs-etablissements-siren-siret/20261103-095402/stock-stockunitelegale-parquet.parquet
-  SIRENE : 382 / 504 sociétés candidates CRE retrouvées
+  SIRENE : 387 / 511 sociétés candidates CRE retrouvées
   SIRENE stock : 243959 établissements 35.11Z actifs dans 30413 communes, 161307 sociétés de production en France
-  SIRENE national : 286 installations rattachées par le nom du site ou de la commune
-  dirigeants : 0 SIREN interrogés en 0 s (0 échecs, 3 restants) ; 1511 exploitants précisés
-  dirigeants personnes physiques : 0 SIREN examinés en 0 s (0 échecs, 0 restants) ; 79 installations rattachées à un groupe
-  SIRENE : {'mode': 'stock Parquet', 'societes_rattachees': 1871, 'national': 286, 'exploitants': 1623, 'holdings': 1511, 'dirigeant_commun': 79}
+  SIRENE national : 288 installations rattachées par le nom du site ou de la commune
+  dirigeants : 33 SIREN interrogés en 6 s (0 échecs, 3 restants) ; 1549 exploitants précisés
+  dirigeants personnes physiques : 7 SIREN examinés en 3 s (0 échecs, 0 restants) ; 80 installations rattachées à un groupe
+  SIRENE : {'mode': 'stock Parquet', 'societes_rattachees': 1915, 'national': 288, 'exploitants': 1655, 'holdings': 1549, 'dirigeant_commun': 80}
 Exploitants étrangers (GLEIF)…
   GLEIF : 15 sociétés étrangères en sommet de chaîne, 0 interrogées (0 restantes) ; 3 installations à exploitant étranger, 0 rattachées à leur maison mère
   Wikidata : 14 centrales solaires / stockage avec exploitant
   Wikidata : {'source': 'Wikidata', 'objets': 14, 'exploitants': 2, 'localisees': 1}
-  Déduction : 30 par les autres tranches du site, 14 par la codification du nom
-OK : 3673 installations (14624.4 MW PV, 2250.6 MW BESS), 0 sans coordonnées, exclusions {'≤ seuil': 96479, 'agrégats < 36 kW': 33611}
+  Déduction : 32 par les autres tranches du site, 14 par la codification du nom
+OK : 3743 installations (14847.3 MW PV, 2448.0 MW BESS), 0 sans coordonnées, exclusions {'≤ seuil': 98707, 'agrégats < 36 kW': 33429}
