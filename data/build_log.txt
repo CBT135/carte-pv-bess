@@ -12,8 +12,8 @@ SIRENE : établissements de production d'électricité (NAF 35.11Z)…
   SIRENE : 387 / 511 sociétés candidates CRE retrouvées
   SIRENE stock : 243959 établissements 35.11Z actifs dans 30413 communes, 161307 sociétés de production en France
   SIRENE national : 288 installations rattachées par le nom du site ou de la commune
-  dirigeants : 33 SIREN interrogés en 6 s (0 échecs, 3 restants) ; 1549 exploitants précisés
-  dirigeants personnes physiques : 7 SIREN examinés en 3 s (0 échecs, 0 restants) ; 80 installations rattachées à un groupe
+  dirigeants : 0 SIREN interrogés en 0 s (0 échecs, 3 restants) ; 1549 exploitants précisés
+  dirigeants personnes physiques : 0 SIREN examinés en 0 s (0 échecs, 0 restants) ; 80 installations rattachées à un groupe
   SIRENE : {'mode': 'stock Parquet', 'societes_rattachees': 1915, 'national': 288, 'exploitants': 1655, 'holdings': 1549, 'dirigeant_commun': 80}
 Exploitants étrangers (GLEIF)…
   GLEIF : 15 sociétés étrangères en sommet de chaîne, 0 interrogées (0 restantes) ; 3 installations à exploitant étranger, 0 rattachées à leur maison mère
