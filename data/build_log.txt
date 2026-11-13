@@ -1,19 +1,15 @@
 Téléchargement du registre (ODRÉ)…
   143712 lignes lues
   35014 centroïdes de communes
-  Overpass : 29 tuiles, 27 à rafraîchir
-  Overpass tuile 41.3,-5.3,43.0,-1.5 : 552 objets
-  Overpass tuile 41.3,-1.5,43.0,1.5 : échec (Overpass indisponible (HTTP Error 504: Gateway Timeout))
-  Overpass tuile 41.3,1.5,43.0,4.5 : 196 objets
-  Overpass tuile 41.3,4.5,43.0,9.7 : 40 objets
-  Overpass tuile 43.0,-5.3,44.5,-1.5 : 28 objets
-  Overpass tuile 43.0,-1.5,44.5,1.5 : 273 objets
-  Overpass tuile 43.0,1.5,44.5,4.5 : 268 objets
-  Overpass tuile 43.0,4.5,44.5,9.7 : 409 objets
-  Overpass tuile 44.5,-5.3,46.0,-1.5 : 0 objets
-  Overpass tuile 44.5,-1.5,46.0,1.5 : échec (Overpass indisponible (HTTP Error 504: Gateway Time-out))
+  Overpass : 29 tuiles, 21 à rafraîchir
+  Overpass tuile 41.3,-1.5,43.0,1.5 : 386 objets
+  Overpass tuile 44.5,-1.5,46.0,1.5 : 193 objets
+  Overpass tuile 44.5,1.5,46.0,4.5 : 142 objets
+  Overpass tuile 44.5,4.5,46.0,9.7 : échec (Overpass indisponible (HTTP Error 504: Gateway Time-out))
+  Overpass tuile 46.0,-5.3,47.5,-1.5 : échec (Overpass indisponible (HTTP Error 504: Gateway Time-out))
+  Overpass tuile 46.0,-1.5,47.5,1.5 : échec (Overpass indisponible (HTTP Error 504: Gateway Timeout))
   Overpass : budget temps atteint, suite à la prochaine exécution
-  OSM : 13484 objets (8 tuiles rafraîchies, 0 jamais extraites)
+  OSM : 13491 objets (3 tuiles rafraîchies, 0 jamais extraites)
   OSM : 1269 installations rapprochées, 344 exploitants récupérés
   CRE : 8663 dossiers PV / stockage retenus (CRE)
   CRE : 588 installations rattachées à un dossier lauréat
