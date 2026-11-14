@@ -1,30 +1,36 @@
 Téléchargement du registre (ODRÉ)…
   143712 lignes lues
   35014 centroïdes de communes
-  Overpass : 29 tuiles, 21 à rafraîchir
-  Overpass tuile 41.3,-1.5,43.0,1.5 : 386 objets
-  Overpass tuile 44.5,-1.5,46.0,1.5 : 193 objets
-  Overpass tuile 44.5,1.5,46.0,4.5 : 142 objets
-  Overpass tuile 44.5,4.5,46.0,9.7 : échec (Overpass indisponible (HTTP Error 504: Gateway Time-out))
-  Overpass tuile 46.0,-5.3,47.5,-1.5 : échec (Overpass indisponible (HTTP Error 504: Gateway Time-out))
-  Overpass tuile 46.0,-1.5,47.5,1.5 : échec (Overpass indisponible (HTTP Error 504: Gateway Timeout))
+  Overpass : 29 tuiles, 18 à rafraîchir
+  Overpass tuile 44.5,4.5,46.0,9.7 : 633 objets
+  Overpass tuile 46.0,-5.3,47.5,-1.5 : 58 objets
+  Overpass tuile 46.0,-1.5,47.5,1.5 : 164 objets
+  Overpass tuile 46.0,1.5,47.5,4.5 : 244 objets
+  Overpass tuile 46.0,4.5,47.5,9.7 : 577 objets
+  Overpass tuile 47.5,-5.3,49.0,-1.5 : 69 objets
+  Overpass tuile 47.5,-1.5,49.0,1.5 : 118 objets
+  Overpass tuile 47.5,1.5,49.0,4.5 : 143 objets
+  Overpass tuile 47.5,4.5,49.0,9.7 : 1759 objets
+  Overpass tuile 49.0,-5.3,51.2,-1.5 : 2662 objets
+  Overpass tuile 49.0,-1.5,51.2,1.5 : 203 objets
+  Overpass tuile 49.0,1.5,51.2,4.5 : 231 objets
   Overpass : budget temps atteint, suite à la prochaine exécution
-  OSM : 13491 objets (3 tuiles rafraîchies, 0 jamais extraites)
-  OSM : 1269 installations rapprochées, 344 exploitants récupérés
+  OSM : 13752 objets (12 tuiles rafraîchies, 0 jamais extraites)
+  OSM : 1279 installations rapprochées, 351 exploitants récupérés
   CRE : 8663 dossiers PV / stockage retenus (CRE)
   CRE : 588 installations rattachées à un dossier lauréat
 SIRENE : établissements de production d'électricité (NAF 35.11Z)…
   téléchargement https://static.data.gouv.fr/resources/base-sirene-des-entreprises-et-de-leurs-etablissements-siren-siret/20261103-101714/stock-stocketablissement-parquet.parquet
   téléchargement https://static.data.gouv.fr/resources/base-sirene-des-entreprises-et-de-leurs-etablissements-siren-siret/20261103-095402/stock-stockunitelegale-parquet.parquet
-  SIRENE : 387 / 511 sociétés candidates CRE retrouvées
-  SIRENE stock : 243959 établissements 35.11Z actifs dans 30413 communes, 161307 sociétés de production en France
-  SIRENE national : 288 installations rattachées par le nom du site ou de la commune
-  dirigeants : 0 SIREN interrogés en 0 s (0 échecs, 3 restants) ; 1549 exploitants précisés
-  dirigeants personnes physiques : 0 SIREN examinés en 0 s (0 échecs, 0 restants) ; 80 installations rattachées à un groupe
-  SIRENE : {'mode': 'stock Parquet', 'societes_rattachees': 1915, 'national': 288, 'exploitants': 1655, 'holdings': 1549, 'dirigeant_commun': 80}
+  stock SIRENE indisponible (Invalid Input Error: No magic bytes found at end of file '/tmp/sirene/ul.parquet') : repli sur l'API par commune
+  SIRENE : 2418 communes, 40 à interroger
+  SIRENE : 40 communes interrogées en 12 s, 0 échecs, 0 encore jamais interrogées (prochaine exécution)
+  dirigeants : 1 SIREN interrogés en 0 s (0 échecs, 2 restants) ; 1145 exploitants précisés
+  dirigeants personnes physiques : 1 SIREN examinés en 1 s (0 échecs, 0 restants) ; 43 installations rattachées à un groupe
+  SIRENE : {'mode': 'API', 'societes_rattachees': 1333, 'national': 0, 'exploitants': 1120, 'holdings': 1145, 'dirigeant_commun': 43}
 Exploitants étrangers (GLEIF)…
-  GLEIF : 15 sociétés étrangères en sommet de chaîne, 0 interrogées (0 restantes) ; 3 installations à exploitant étranger, 0 rattachées à leur maison mère
+  GLEIF : 9 sociétés étrangères en sommet de chaîne, 0 interrogées (0 restantes) ; 4 installations à exploitant étranger, 0 rattachées à leur maison mère
   Wikidata : 14 centrales solaires / stockage avec exploitant
-  Wikidata : {'source': 'Wikidata', 'objets': 14, 'exploitants': 2, 'localisees': 1}
-  Déduction : 32 par les autres tranches du site, 14 par la codification du nom
+  Wikidata : {'source': 'Wikidata', 'objets': 14, 'exploitants': 3, 'localisees': 2}
+  Déduction : 25 par les autres tranches du site, 12 par la codification du nom
 OK : 3743 installations (14847.3 MW PV, 2448.0 MW BESS), 0 sans coordonnées, exclusions {'≤ seuil': 98707, 'agrégats < 36 kW': 33429}
