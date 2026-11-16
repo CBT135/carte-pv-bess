@@ -1,14 +1,9 @@
 Téléchargement du registre (ODRÉ)…
   143712 lignes lues
   35014 centroïdes de communes
-  Overpass : 29 tuiles, 6 à rafraîchir
-  Overpass tuile 49.0,4.5,51.2,9.7 : 4344 objets
-  Overpass tuile 15.8,-61.9,16.6,-60.9 : 19 objets
-  Overpass tuile 14.35,-61.3,14.95,-60.75 : 9 objets
-  Overpass tuile 2.1,-54.7,5.9,-51.5 : 18 objets
-  Overpass tuile -21.45,55.15,-20.8,55.9 : 30 objets
+  Overpass : 29 tuiles, 1 à rafraîchir
   Overpass tuile -13.1,44.95,-12.55,45.35 : échec (Overpass indisponible (HTTP Error 504: Gateway Time-out))
-  OSM : 13798 objets (5 tuiles rafraîchies, 0 jamais extraites)
+  OSM : 13798 objets (0 tuiles rafraîchies, 0 jamais extraites)
   OSM : 1279 installations rapprochées, 351 exploitants récupérés
   CRE : 8663 dossiers PV / stockage retenus (CRE)
   CRE : 588 installations rattachées à un dossier lauréat
