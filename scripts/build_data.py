@@ -19,6 +19,7 @@ import json
 import math
 import re
 import sys
+import time
 import unicodedata
 import urllib.request
 from collections import Counter, defaultdict
@@ -151,17 +152,35 @@ def load_registre(path=None):
     raise SystemExit(2)
 
 
+COMMUNES_CACHE = DATA / "communes_cache.json"
+
+
 def load_communes(path=None):
-    """Retourne {code INSEE: (lat, lon)}."""
+    """Retourne {code INSEE: (lat, lon)}. Copie locale dans data/communes_cache.json, utilisée si
+    geo.api.gouv.fr ne répond pas (le premier référentiel communal, lui, ne change qu'une fois par an)."""
     if path:
         items = json.loads(Path(path).read_text(encoding="utf-8"))
     else:
-        items = []
+        items, failed = [], 0
         for u in GEO_URLS:
-            try:
-                items += json.loads(fetch(u, timeout=120))
-            except Exception as e:
-                print(f"  geo.api.gouv.fr : {u} indisponible ({e})", file=sys.stderr)
+            for attempt in range(3):
+                try:
+                    items += json.loads(fetch(u, timeout=90))
+                    break
+                except Exception as e:
+                    print(f"  geo.api.gouv.fr (essai {attempt + 1}) : {u} indisponible ({e})", file=sys.stderr)
+                    if attempt == 2:
+                        failed += 1
+                    else:
+                        time.sleep(20)
+        n_main = sum(1 for c in items if c.get("code"))
+        if n_main >= 30000 and not failed:
+            COMMUNES_CACHE.write_text(json.dumps(
+                [{"code": c["code"], "nom": c.get("nom", ""), "centre": c.get("centre")} for c in items if c.get("centre")],
+                ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+        elif COMMUNES_CACHE.exists():
+            print(f"  geo.api.gouv.fr incomplet ({n_main} communes) : utilisation de la copie locale", file=sys.stderr)
+            items = json.loads(COMMUNES_CACHE.read_text(encoding="utf-8"))
     out = {}
     COMMUNES_HOMONYMES.update(k for k, v in Counter(norm(c.get("nom", "")) for c in items
                                                     if c.get("code", "")[:2] != "75").items() if v > 1)
@@ -507,8 +526,16 @@ def main():
         print("SIRENE : établissements de production d'électricité (NAF 35.11Z)…", file=sys.stderr)
         national = []
         try:
-            by_c, national, by_name = sirene_match.load_stock(
-                Path(a.tmp), names={cre.compact(p["candidat"]) for p in pts if p["candidat"]})
+            for attempt in range(3):
+                try:
+                    by_c, national, by_name = sirene_match.load_stock(
+                        Path(a.tmp), names={cre.compact(p["candidat"]) for p in pts if p["candidat"]})
+                    break
+                except Exception as e:
+                    if attempt == 2:
+                        raise
+                    print(f"  stock SIRENE (essai {attempt + 1}) : {e}", file=sys.stderr)
+                    time.sleep(60)
             mode = "stock Parquet"
         except Exception as e:
             print(f"  stock SIRENE indisponible ({e}) : repli sur l'API par commune", file=sys.stderr)
@@ -614,6 +641,14 @@ def main():
             if len(pts) < 0.8 * n_prev:
                 print(f"ÉCHEC : {len(pts)} installations contre {n_prev} précédemment (chute > 20 %), "
                       "données non mises à jour.", file=sys.stderr)
+                raise SystemExit(3)
+            prev_d = json.loads(prev.read_text(encoding="utf-8"))
+            pf = prev_d["fields"]
+            mw_prev = sum(r[pf.index("mw")] for r in prev_d["rows"] if r[pf.index("expl")])
+            mw_now = sum(p["mw"] for p in pts if p["expl"])
+            if mw_now < 0.85 * mw_prev:
+                print(f"ÉCHEC : exploitants identifiés pour {mw_now:.0f} MW contre {mw_prev:.0f} MW précédemment "
+                      "(source indisponible ?), données non mises à jour.", file=sys.stderr)
                 raise SystemExit(3)
         except (KeyError, ValueError):
             pass
