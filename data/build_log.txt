@@ -2,12 +2,18 @@ Téléchargement du registre (ODRÉ)…
   143712 lignes lues
   35014 centroïdes de communes
   Overpass : 29 tuiles, 1 à rafraîchir
-  Overpass tuile -13.1,44.95,-12.55,45.35 : échec (Overpass indisponible (HTTP Error 504: Gateway Time-out))
-  OSM : 13798 objets (0 tuiles rafraîchies, 0 jamais extraites)
+  Overpass tuile -13.1,44.95,-12.55,45.35 : 37 objets
+  OSM : 13800 objets (1 tuiles rafraîchies, 0 jamais extraites)
   OSM : 1279 installations rapprochées, 351 exploitants récupérés
   CRE : 8663 dossiers PV / stockage retenus (CRE)
   CRE : 588 installations rattachées à un dossier lauréat
 SIRENE : établissements de production d'électricité (NAF 35.11Z)…
+  téléchargement https://static.data.gouv.fr/resources/base-sirene-des-entreprises-et-de-leurs-etablissements-siren-siret/20261103-101714/stock-stocketablissement-parquet.parquet
+  téléchargement https://static.data.gouv.fr/resources/base-sirene-des-entreprises-et-de-leurs-etablissements-siren-siret/20261103-095402/stock-stockunitelegale-parquet.parquet
+  stock SIRENE (essai 1) : [Errno 32] Broken pipe
+  téléchargement https://static.data.gouv.fr/resources/base-sirene-des-entreprises-et-de-leurs-etablissements-siren-siret/20261103-101714/stock-stocketablissement-parquet.parquet
+  téléchargement https://static.data.gouv.fr/resources/base-sirene-des-entreprises-et-de-leurs-etablissements-siren-siret/20261103-095402/stock-stockunitelegale-parquet.parquet
+  stock SIRENE (essai 2) : Invalid Input Error: No magic bytes found at end of file '/tmp/sirene/et.parquet'
   téléchargement https://static.data.gouv.fr/resources/base-sirene-des-entreprises-et-de-leurs-etablissements-siren-siret/20261103-101714/stock-stocketablissement-parquet.parquet
   téléchargement https://static.data.gouv.fr/resources/base-sirene-des-entreprises-et-de-leurs-etablissements-siren-siret/20261103-095402/stock-stockunitelegale-parquet.parquet
   SIRENE : 387 / 511 sociétés candidates CRE retrouvées
