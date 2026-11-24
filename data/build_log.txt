@@ -9,9 +9,6 @@ Téléchargement du registre (ODRÉ)…
 SIRENE : établissements de production d'électricité (NAF 35.11Z)…
   téléchargement https://static.data.gouv.fr/resources/base-sirene-des-entreprises-et-de-leurs-etablissements-siren-siret/20261103-101714/stock-stocketablissement-parquet.parquet
   téléchargement https://static.data.gouv.fr/resources/base-sirene-des-entreprises-et-de-leurs-etablissements-siren-siret/20261103-095402/stock-stockunitelegale-parquet.parquet
-  stock SIRENE (essai 1) : Invalid Input Error: No magic bytes found at end of file '/tmp/sirene/et.parquet'
-  téléchargement https://static.data.gouv.fr/resources/base-sirene-des-entreprises-et-de-leurs-etablissements-siren-siret/20261103-101714/stock-stocketablissement-parquet.parquet
-  téléchargement https://static.data.gouv.fr/resources/base-sirene-des-entreprises-et-de-leurs-etablissements-siren-siret/20261103-095402/stock-stockunitelegale-parquet.parquet
   SIRENE : 387 / 511 sociétés candidates CRE retrouvées
   SIRENE stock : 243959 établissements 35.11Z actifs dans 30413 communes, 161307 sociétés de production en France
   SIRENE national : 288 installations rattachées par le nom du site ou de la commune
