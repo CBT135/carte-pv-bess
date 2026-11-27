@@ -1,9 +1,16 @@
 Téléchargement du registre (ODRÉ)…
   143712 lignes lues
   35014 centroïdes de communes
-  Overpass : 29 tuiles, 0 à rafraîchir
-  OSM : 13800 objets (0 tuiles rafraîchies, 0 jamais extraites)
-  OSM : 1279 installations rapprochées, 351 exploitants récupérés
+  Overpass : 29 tuiles, 8 à rafraîchir
+  Overpass tuile 41.3,-5.3,43.0,-1.5 : 593 objets
+  Overpass tuile 41.3,1.5,43.0,4.5 : 197 objets
+  Overpass tuile 41.3,4.5,43.0,9.7 : échec (Overpass indisponible (HTTP Error 504: Gateway Time-out))
+  Overpass tuile 43.0,-5.3,44.5,-1.5 : 29 objets
+  Overpass tuile 43.0,-1.5,44.5,1.5 : 273 objets
+  Overpass tuile 43.0,1.5,44.5,4.5 : échec (Overpass indisponible (HTTP Error 504: Gateway Time-out))
+  Overpass : budget temps atteint, suite à la prochaine exécution
+  OSM : 13843 objets (4 tuiles rafraîchies, 0 jamais extraites)
+  OSM : 1280 installations rapprochées, 351 exploitants récupérés
   CRE : 8663 dossiers PV / stockage retenus (CRE)
   CRE : 588 installations rattachées à un dossier lauréat
 SIRENE : établissements de production d'électricité (NAF 35.11Z)…
